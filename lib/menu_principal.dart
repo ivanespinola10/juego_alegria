@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'dart:math'; // 🚀 NECESARIO PARA LA COMPUERTA PARENTAL
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'idiomas.dart'; // 🚀 TRADUCTOR CONECTADO
 import 'gestor_archivos.dart';
 import 'juego_pintura.dart';
+import 'servicio_audio.dart';
+import 'iap_service.dart'; // 🚀 IAP CONECTADO PARA PRODUCCIÓN
 
 class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key});
@@ -16,31 +19,54 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   List<CategoriaDinamica> _categoriasUsuario = [];
   bool _cargando = true;
 
-  // 🚀 LISTA DE PACKS DE FÁBRICA
+  // 🚀 NUEVA LISTA DE PACKS DE FÁBRICA
   final List<Map<String, dynamic>> _packsEstaticos = [
     {
-      "titulo": "Moisés",
-      "subtitulo": "Historias",
-      "icono": "📜",
-      "color": Colors.orange,
+      "titulo": "Capibaras",
+      "subtitulo": "Mundo Relax",
+      "icono": Icons.water_drop_rounded,
+      "color": Colors.teal,
       "archivos": [
-        "assets/canva/1.png",
-        "assets/canva/2.png",
-        "assets/canva/3.png",
-        "assets/canva/4.png",
-        "assets/canva/5.png",
-        "assets/canva/6.png",
-        "assets/canva/7.png",
-        "assets/canva/8.png",
-        "assets/canva/9.png",
-        "assets/canva/10.png",
+        "assets/capibara/1.png",
+        "assets/capibara/2.png",
+        "assets/capibara/3.png",
+        "assets/capibara/4.png",
+        "assets/capibara/5.png",
+        "assets/capibara/6.png",
       ],
     },
-
+    {
+      "titulo": "Animalitos",
+      "subtitulo": "Amigos",
+      "icono": Icons.pets_rounded,
+      "color": Colors.orange,
+      "archivos": [
+        "assets/Animalitos/1A.png",
+        "assets/Animalitos/2A.png",
+        "assets/Animalitos/3A.png",
+        "assets/Animalitos/4A.png",
+        "assets/Animalitos/5A.png",
+        "assets/Animalitos/6A.png",
+      ],
+    },
+    {
+      "titulo": "Dinosaurios",
+      "subtitulo": "Mundo Jurásico",
+      "icono": Icons.park_rounded,
+      "color": Colors.green,
+      "archivos": [
+        "assets/Dino/1D.png",
+        "assets/Dino/2D.png",
+        "assets/Dino/3D.png",
+        "assets/Dino/4D.png",
+        "assets/Dino/5D.png",
+        "assets/Dino/6D.png",
+      ],
+    },
     {
       "titulo": "Abecedario",
       "subtitulo": "Aprende las Letras",
-      "icono": "🔤",
+      "icono": Icons.font_download_rounded,
       "color": Colors.blue,
       "archivos": [
         "assets/Abecedario_MundoAlegria/1_letra_A.png",
@@ -76,7 +102,8 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   @override
   void initState() {
     super.initState();
-    _cargarCarpetas(); // 🚀 Carga directamente porque ya es versión de PAGO
+    _cargarCarpetas();
+    ServicioAudio.instance.iniciarMusica();
   }
 
   Future<void> _cargarCarpetas() async {
@@ -101,16 +128,15 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          Traductor.get('borrar_pack') ?? "¿Borrar este pack?",
+          Traductor.get('borrar_pack'),
           style:
               const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
         ),
-        content: Text(Traductor.get('borrar_aviso') ??
-            "Se eliminarán todos los dibujos de esta carpeta. ¡No se puede deshacer!"),
+        content: Text(Traductor.get('borrar_aviso')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(Traductor.get('cancelar') ?? "Cancelar"),
+            child: Text(Traductor.get('cancelar')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -123,10 +149,151 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                 _cargarCarpetas();
               }
             },
-            child: Text(Traductor.get('si_borrar') ?? "Sí, borrar"),
+            child: Text(Traductor.get('si_borrar')),
           ),
         ],
       ),
+    );
+  }
+
+  // 🚀 COMPUERTA PARENTAL (Seguridad exigida por Google)
+  void _mostrarCompuertaParental() {
+    ServicioAudio.instance.playPop();
+    final Random rand = Random();
+    final int num1 = rand.nextInt(10) + 5;
+    final int num2 = rand.nextInt(10) + 5;
+    final int respuestaCorrecta = num1 + num2;
+    final TextEditingController ctrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Center(
+            child: Column(
+              children: [
+                Icon(Icons.lock_rounded, size: 40, color: Colors.grey),
+                SizedBox(height: 10),
+                Text("Zona de Padres",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                  "Pide ayuda a un adulto.\nPara continuar, resuelve la suma:",
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 15),
+              Text("$num1 + $num2 = ?",
+                  style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple)),
+              const SizedBox(height: 15),
+              TextField(
+                controller: ctrl,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: "Respuesta",
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15)),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child:
+                  const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueGrey,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15)),
+              ),
+              onPressed: () {
+                if (ctrl.text.trim() == respuestaCorrecta.toString()) {
+                  Navigator.pop(context); // Cierra la compuerta
+                  _mostrarMenuAjustesPadres(); // Abre ajustes reales
+                } else {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Respuesta incorrecta.'),
+                        backgroundColor: Colors.red),
+                  );
+                }
+              },
+              child: const Text("Comprobar",
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 🚀 MENÚ DE AJUSTES PREMIUM
+  void _mostrarMenuAjustesPadres() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text("Ajustes Premium",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.restore_rounded,
+                    color: Colors.green, size: 30),
+                title: const Text("Restaurar Compras",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text("Si cambiaste de celular"),
+                onTap: () {
+                  Navigator.pop(context);
+                  // 🚀 RESTAURAR COMPRAS VÍA GOOGLE PLAY BILLING
+                  IAPService().restorePurchases();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text(
+                            'Restaurando compras conectando a Google Play...'),
+                        backgroundColor: Colors.green),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.privacy_tip_rounded,
+                    color: Colors.blue, size: 30),
+                title: const Text("Política de Privacidad"),
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Abriendo política de privacidad...')),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -151,10 +318,12 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
-                      children: [
-                        const SizedBox(width: 8),
-                        const Text(
-                          "✨ El Mundo de Alegría",
+                      children: const [
+                        Icon(Icons.auto_awesome_rounded,
+                            color: Colors.amber, size: 28),
+                        SizedBox(width: 8),
+                        Text(
+                          "El Mundo de Alegría",
                           style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -162,29 +331,66 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                         ),
                       ],
                     ),
-                    if (!kIsWeb)
-                      IconButton(
-                        icon: const Icon(Icons.refresh_rounded,
-                            color: Colors.deepPurple, size: 28),
-                        onPressed: _cargarCarpetas,
-                      ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.settings,
+                              color: Colors.deepPurple, size: 28),
+                          onPressed: _mostrarCompuertaParental,
+                        ),
+                        ValueListenableBuilder<bool>(
+                          valueListenable:
+                              ServicioAudio.instance.audioActivoNotifier,
+                          builder: (context, audioActivo, _) {
+                            return IconButton(
+                              icon: Icon(
+                                audioActivo
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_off_rounded,
+                                color: audioActivo
+                                    ? Colors.deepPurple
+                                    : Colors.grey,
+                                size: 28,
+                              ),
+                              onPressed: () {
+                                ServicioAudio.instance.playPop();
+                                ServicioAudio.instance.toggleAudio();
+                              },
+                            );
+                          },
+                        ),
+                        if (!kIsWeb)
+                          IconButton(
+                            icon: const Icon(Icons.refresh_rounded,
+                                color: Colors.deepPurple, size: 28),
+                            onPressed: () {
+                              ServicioAudio.instance.playPop();
+                              _cargarCarpetas();
+                            },
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
               Expanded(
                 child: _cargando
                     ? const Center(child: CircularProgressIndicator())
-                    : ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 5),
-                        children: [
-                          ..._packsEstaticos.map(
-                              (pack) => _buildTarjetaEstatica(context, pack)),
-                          ..._categoriasUsuario.map(
-                              (cat) => _buildTarjetaDinamica(context, cat)),
-                          _buildTarjetaComercial(),
-                        ],
+                    : Center(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 5),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ..._packsEstaticos.map((pack) =>
+                                  _buildTarjetaEstatica(context, pack)),
+                              ..._categoriasUsuario.map(
+                                  (cat) => _buildTarjetaDinamica(context, cat)),
+                            ],
+                          ),
+                        ),
                       ),
               ),
             ],
@@ -197,183 +403,166 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   Widget _buildTarjetaEstatica(
       BuildContext context, Map<String, dynamic> pack) {
     final Color colorMascota = pack["color"];
+    final IconData iconoData =
+        pack["icono"] is IconData ? pack["icono"] : Icons.menu_book_rounded;
+
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => JuegoPintura(
-            dibujos: List<String>.from(pack["archivos"]),
-            titulo: pack["titulo"],
-            colorBase: colorMascota,
-            esNativo: false,
-          ),
-        ),
-      ),
-      child: Container(
-        width: 240,
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: colorMascota.withOpacity(0.3), width: 3),
-          boxShadow: [
-            BoxShadow(
-                color: colorMascota.withOpacity(0.15),
-                blurRadius: 15,
-                offset: const Offset(0, 8))
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                  color: colorMascota.withOpacity(0.1), shape: BoxShape.circle),
-              child: Text(pack["icono"], style: const TextStyle(fontSize: 65)),
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        ServicioAudio.instance.playPop();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => JuegoPintura(
+              dibujos: List<String>.from(pack["archivos"]),
+              titulo: pack["titulo"],
+              colorBase: colorMascota,
+              esNativo: false,
             ),
-            const SizedBox(height: 20),
-            Text(pack["titulo"],
+          ),
+        );
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: 240,
+          height: 320,
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+                color: colorMascota.withValues(alpha: 0.3), width: 3),
+            boxShadow: [
+              BoxShadow(
+                  color: colorMascota.withValues(alpha: 0.15),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8))
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                    color: colorMascota.withValues(alpha: 0.1),
+                    shape: BoxShape.circle),
+                child: Icon(iconoData, size: 60, color: colorMascota),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                pack["titulo"],
                 style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: colorMascota)),
-            Text(pack["subtitulo"],
-                style: const TextStyle(color: Colors.grey, fontSize: 14)),
-          ],
+                    color: colorMascota),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                pack["subtitulo"],
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildTarjetaDinamica(BuildContext context, CategoriaDinamica cat) {
-    return Stack(
-      alignment: Alignment.topRight,
-      children: [
-        GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => JuegoPintura(
-                dibujos: cat.rutasDibujos,
-                titulo: cat.nombre,
-                colorBase: cat.colorBase,
-                esNativo: true,
-              ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        ServicioAudio.instance.playPop();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => JuegoPintura(
+              dibujos: cat.rutasDibujos,
+              titulo: cat.nombre,
+              colorBase: cat.colorBase,
+              esNativo: true,
             ),
           ),
-          child: Container(
-            width: 240,
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              border:
-                  Border.all(color: cat.colorBase.withOpacity(0.3), width: 3),
-              boxShadow: [
-                BoxShadow(
-                    color: cat.colorBase.withOpacity(0.15),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8))
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 110,
-                  height: 110,
-                  decoration: BoxDecoration(
-                      color: cat.colorBase.withOpacity(0.1),
-                      shape: BoxShape.circle),
-                  child: ClipOval(
-                    child: cat.rutaPortada.isNotEmpty
-                        ? Image.file(File(cat.rutaPortada), fit: BoxFit.cover)
-                        : Center(
-                            child: Text(
-                              cat.nombre.substring(0, 1).toUpperCase(),
-                              style: TextStyle(
-                                  fontSize: 50,
-                                  fontWeight: FontWeight.bold,
-                                  color: cat.colorBase),
+        );
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: 240,
+          height: 320,
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+                color: cat.colorBase.withValues(alpha: 0.3), width: 3),
+            boxShadow: [
+              BoxShadow(
+                  color: cat.colorBase.withValues(alpha: 0.15),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8))
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                        color: cat.colorBase.withValues(alpha: 0.1),
+                        shape: BoxShape.circle),
+                    child: ClipOval(
+                      child: cat.rutaPortada.isNotEmpty
+                          ? Image.file(File(cat.rutaPortada),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(Icons.child_care_rounded,
+                                      size: 50, color: cat.colorBase))
+                          : Center(
+                              child: Text(
+                                cat.nombre.isNotEmpty
+                                    ? cat.nombre.substring(0, 1).toUpperCase()
+                                    : "?",
+                                style: TextStyle(
+                                    fontSize: 50,
+                                    fontWeight: FontWeight.bold,
+                                    color: cat.colorBase),
+                              ),
                             ),
-                          ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Text(cat.nombre,
+                  const SizedBox(height: 20),
+                  Text(
+                    cat.nombre,
                     style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: cat.colorBase)),
-                Text("${cat.rutasDibujos.length} dibujos",
-                    style: const TextStyle(color: Colors.grey, fontSize: 14)),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          top: 15,
-          right: 15,
-          child: GestureDetector(
-            onTap: () => _eliminarCategoria(cat),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: Colors.red.shade100, shape: BoxShape.circle),
-              child:
-                  const Icon(Icons.delete_rounded, color: Colors.red, size: 24),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTarjetaComercial() {
-    return GestureDetector(
-      onTap: () async {
-        // 🚀 YA NO HAY MURO DE PAGO, ABRE LOS ARCHIVOS DIRECTO
-        await GestorArchivos.importarArchivosDirectos();
-        _cargarCarpetas();
-      },
-      child: Container(
-        width: 240,
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.purple.shade50.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.purple.shade100, width: 2.5),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.add_photo_alternate_rounded,
-                      size: 50, color: Colors.purple),
-                  const SizedBox(height: 10),
-                  Text(
-                    Traductor.get('importar'), // "Importar Dibujos"
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.purple),
+                        color: cat.colorBase),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 5),
                   Text(
-                    Traductor.get('importar_desc') ??
-                        "Desde tu equipo",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    "${cat.rutasDibujos.length} dibujos",
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ],
               ),
-            ),
-          ],
+              Positioned(
+                top: 10,
+                right: 10,
+                child: IconButton(
+                  icon: const Icon(Icons.delete_rounded,
+                      color: Colors.red, size: 24),
+                  onPressed: () => _eliminarCategoria(cat),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -15,7 +15,7 @@ class IAPService extends ChangeNotifier {
   List<ProductDetails> products = [];
   bool isPremium = false;
 
-  final String _premiumProductId = 'premium_unlock_test'; // TODO: Cambiar por ID real
+  final String _premiumProductId = 'premium_hub_unlock';
 
   Future<void> init() async {
     isAvailable = await _iap.isAvailable();
@@ -42,9 +42,15 @@ class IAPService extends ChangeNotifier {
     }
   }
 
-  Future<void> _checkLocalPremiumStatus() async {
+  /// Lectura ligera del estado premium desde SharedPreferences.
+  /// Se puede llamar sin inicializar el IAP completo.
+  static Future<bool> checkSavedPremium() async {
     final prefs = await SharedPreferences.getInstance();
-    isPremium = prefs.getBool('isPremium') ?? false;
+    return prefs.getBool('isPremium') ?? false;
+  }
+
+  Future<void> _checkLocalPremiumStatus() async {
+    isPremium = await checkSavedPremium();
     notifyListeners();
   }
 

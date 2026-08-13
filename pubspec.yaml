@@ -2,7 +2,7 @@ name: myapp
 description: "El Mundo de Alegría - Premium Coloring Book"
 publish_to: 'none'
 
-version: 1.0.0+4
+version: 1.0.0+5
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -38,8 +38,11 @@ flutter:
   uses-material-design: true
   
   assets:
-    - assets/audio/
-    - assets/canva/
-    - assets/Dino/
-    - assets/Abecedario_MundoAlegria/
     - assets/logo.png
+    - assets/vacio.txt
+    - assets/audio/
+    - assets/Abecedario_MundoAlegria/
+    - assets/Animalitos/
+    - assets/capibara/
+    - assets/Dino/
+    - assets/Dinobebe/

@@ -1,53 +1,74 @@
-import 'dart:ui';
+import 'dart:ui' as ui;
 
 class Traductor {
-  // Obtenemos el idioma del sistema operativo del celular ('es', 'en', etc.)
-  static final String _codigoIdioma =
-      PlatformDispatcher.instance.locale.languageCode;
+  // Obtiene el código del idioma actual del teléfono (ej: 'es', 'en', 'pt')
+  static String get idiomaActual {
+    return ui.PlatformDispatcher.instance.locale.languageCode;
+  }
 
-  // Nuestro Diccionario Centralizado
+  // Diccionario central con los idiomas principales
   static final Map<String, Map<String, String>> _diccionario = {
     'es': {
-      'pintar': 'Pintar',
-      'sellos': 'Sellos',
-      'salir': 'Salir',
-      'limpiar': 'Limpiar',
-      'deshacer': 'Deshacer',
-      'anterior': 'Anterior',
-      'siguiente': 'Siguiente',
-      'visor_mezcla': 'VISOR DE MEZCLA',
-      'color': 'Color',
-      'gratis': 'GRATIS',
-      'importar': 'Importar Dibujos',
-      'libro_infinito': 'Libro Infinito',
-      'desbloquea': 'Desbloquea la importación de carpetas.',
-      'codigo_colegio': '¿Tienes un código de colegio?',
+      'borrar_pack': 'Eliminar Colección',
+      'borrar_aviso': '¿Seguro que quieres borrar estos dibujos?',
+      'cancelar': 'Cancelar',
+      'si_borrar': 'Sí, borrar',
+      'zona_padres': 'Zona de Padres',
+      'pide_ayuda':
+          'Pide ayuda a un adulto.\nPara continuar, resuelve la suma:',
+      'respuesta': 'Respuesta',
+      'comprobar': 'Comprobar',
+      'respuesta_incorrecta': 'Respuesta incorrecta.',
+      'ajustes_premium': 'Ajustes Premium',
+      'restaurar_compras': 'Restaurar Compras',
+      'si_cambiaste': 'Si cambiaste de celular',
+      'politica_privacidad': 'Política de Privacidad',
+      'restaurando': 'Restaurando compras conectando a Google Play...',
     },
     'en': {
-      'pintar': 'Paint',
-      'sellos': 'Stickers',
-      'salir': 'Exit',
-      'limpiar': 'Clear',
-      'deshacer': 'Undo',
-      'anterior': 'Previous',
-      'siguiente': 'Next',
-      'visor_mezcla': 'MIX VIEWER',
-      'color': 'Color',
-      'gratis': 'FREE',
-      'importar': 'Import Drawings',
-      'libro_infinito': 'Infinite Book',
-      'desbloquea': 'Unlock unlimited folder imports.',
-      'codigo_colegio': 'Do you have a school code?',
+      'borrar_pack': 'Delete Collection',
+      'borrar_aviso': 'Are you sure you want to delete these drawings?',
+      'cancelar': 'Cancel',
+      'si_borrar': 'Yes, delete',
+      'zona_padres': 'Parents Zone',
+      'pide_ayuda':
+          'Ask an adult for help.\nTo continue, solve the math problem:',
+      'respuesta': 'Answer',
+      'comprobar': 'Check',
+      'respuesta_incorrecta': 'Incorrect answer.',
+      'ajustes_premium': 'Premium Settings',
+      'restaurar_compras': 'Restore Purchases',
+      'si_cambiaste': 'If you changed devices',
+      'politica_privacidad': 'Privacy Policy',
+      'restaurando': 'Restoring purchases connecting to Google Play...',
+    },
+    'pt': {
+      'borrar_pack': 'Excluir Coleção',
+      'borrar_aviso': 'Tem certeza de que deseja excluir estes desenhos?',
+      'cancelar': 'Cancelar',
+      'si_borrar': 'Sim, excluir',
+      'zona_padres': 'Área para Pais',
+      'pide_ayuda': 'Peça ajuda a um adulto.\nPara continuar, resolva a conta:',
+      'respuesta': 'Resposta',
+      'comprobar': 'Verificar',
+      'respuesta_incorrecta': 'Resposta incorreta.',
+      'ajustes_premium': 'Configurações Premium',
+      'restaurar_compras': 'Restaurar Compras',
+      'si_cambiaste': 'Se você trocou de celular',
+      'politica_privacidad': 'Política de Privacidade',
+      'restaurando': 'Restaurando compras conectando ao Google Play...',
     }
   };
 
-  // Función mágica que entrega la palabra correcta
+  // Función que se llama desde la interfaz para obtener el texto correcto
   static String get(String clave) {
-    // Si el celular está en español, usa 'es'. Para cualquier otro idioma (ej. alemán, japonés), usará inglés ('en') por defecto.
-    String idiomaSeleccionado =
-        _diccionario.containsKey(_codigoIdioma) ? _codigoIdioma : 'en';
+    String lang = idiomaActual;
 
-    // Retorna la palabra traducida. Si no la encuentra, devuelve la clave original.
-    return _diccionario[idiomaSeleccionado]?[clave] ?? clave;
+    // Si el idioma del celular NO es Español ni Portugués, forzamos a Inglés (Ideal para India, Europa, Asia, etc.)
+    if (lang != 'es' && lang != 'pt') {
+      lang = 'en';
+    }
+
+    return _diccionario[lang]?[clave] ?? clave;
   }
 }

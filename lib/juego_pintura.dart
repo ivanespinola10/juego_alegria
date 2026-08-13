@@ -3,12 +3,15 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/rendering.dart';
 import 'package:floodfill_image/floodfill_image.dart';
 import 'package:confetti/confetti.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'idiomas.dart';
+import 'servicio_audio.dart';
+import 'iap_service.dart';
+import 'trial_manager.dart';
+import 'gestor_archivos.dart';
+import 'package:flutter/rendering.dart';
 
 // 🚀 CLASE PARA GUARDAR LOS TRAZOS A MANO ALZADA
 class Trazo {
@@ -59,8 +62,10 @@ class _JuegoPinturaState extends State<JuegoPintura> {
 
   String? plantillaSeleccionada;
 
-  // 🚀 ESTADO DEL PAYWALL (Pase Premium)
+  // Estado del Paywall (Pase Premium)
   bool _pasePremiumDesbloqueado = false;
+
+  // Audio ambiental manejado por ServicioAudio
 
   final List<String> _plantillasAbecedario = [
     'assets/Abecedario_MundoAlegria/1_letra_A.png',
@@ -194,8 +199,27 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     _blindajeNotifier = ValueNotifier(_necesitaBlindajeMouse);
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 3));
-    // TODO: Aquí podrías verificar el estado real de la compra al iniciar
-    // _verificarCompraGuardada();
+    _verificarCompraGuardada();
+    _iniciarMusica();
+  }
+
+  Future<void> _verificarCompraGuardada() async {
+    final esPremium = await IAPService.checkSavedPremium();
+    if (mounted) {
+      setState(() => _pasePremiumDesbloqueado = esPremium);
+    }
+  }
+
+  Future<void> _iniciarMusica() async {
+    await ServicioAudio.instance.iniciarMusica();
+  }
+
+  void _playPop() {
+    ServicioAudio.instance.playPop();
+  }
+
+  void _toggleAudio() {
+    ServicioAudio.instance.toggleAudio();
   }
 
   @override
@@ -259,6 +283,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   }
 
   void _seleccionarOMezclarColor(Color nuevoColor) {
+    _playPop();
     setState(() {
       if (nuevoColor == Colors.white ||
           colorSeleccionado == Colors.white ||
@@ -270,13 +295,21 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     });
   }
 
-  void _aclararTono() => setState(() =>
-      colorSeleccionado = Color.lerp(colorSeleccionado, Colors.white, 0.25)!);
-  void _oscurecerTono() => setState(() =>
-      colorSeleccionado = Color.lerp(colorSeleccionado, Colors.black, 0.25)!);
+  void _aclararTono() {
+    _playPop();
+    setState(() =>
+        colorSeleccionado = Color.lerp(colorSeleccionado, Colors.white, 0.25)!);
+  }
+
+  void _oscurecerTono() {
+    _playPop();
+    setState(() =>
+        colorSeleccionado = Color.lerp(colorSeleccionado, Colors.black, 0.25)!);
+  }
 
   void _pegarSello(TapUpDetails details) {
     if (modoHerramienta != 'sellos') return;
+    _playPop();
     final nuevoSello = Positioned(
       left: details.localPosition.dx - 25,
       top: details.localPosition.dy - 25,
@@ -304,7 +337,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 20,
                     spreadRadius: 5)
               ]),
@@ -328,6 +361,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     titulo: "Pintura",
                     activo: modoHerramienta == 'pintura',
                     onTap: () {
+                      _playPop();
                       setState(() {
                         modoHerramienta = 'pintura';
                         colorSeleccionado = widget.colorBase;
@@ -341,6 +375,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     titulo: "Pincel",
                     activo: modoHerramienta == 'pincel',
                     onTap: () {
+                      _playPop();
                       setState(() => modoHerramienta = 'pincel');
                       Navigator.pop(context);
                     },
@@ -351,6 +386,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     titulo: "Marcador",
                     activo: modoHerramienta == 'marcador',
                     onTap: () {
+                      _playPop();
                       setState(() => modoHerramienta = 'marcador');
                       Navigator.pop(context);
                     },
@@ -361,6 +397,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     titulo: "Borrador",
                     activo: colorSeleccionado == Colors.white,
                     onTap: () {
+                      _playPop();
                       setState(() {
                         modoHerramienta = 'pincel';
                         colorSeleccionado = Colors.white;
@@ -374,32 +411,29 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     titulo: "Plantillas",
                     activo: false,
                     onTap: () {
+                      _playPop();
                       Navigator.pop(context);
                       _mostrarSubpantallaPlantillas();
                     },
                   ),
-                  // 🚀 BOTÓN DE IMPORTAR CON PAYWALL
+                  // BOTÓN DE IMPORTAR CON PAYWALL
                   _buildHerramientaIcono(
                     icono: _pasePremiumDesbloqueado
                         ? Icons.add_photo_alternate_rounded
                         : Icons.lock_rounded,
                     color: Colors.indigo,
-                    titulo: "Importar",
+                    titulo:
+                        _pasePremiumDesbloqueado ? "Importar" : "Importar 🔒",
                     activo: false,
                     onTap: () async {
+                      _playPop();
                       Navigator.pop(context);
                       if (_pasePremiumDesbloqueado) {
-                        // TODO: Aquí va la lógica para abrir la galería del dispositivo
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Abriendo galería...')));
+                        // Ya es premium: abrir galería directamente
+                        await GestorArchivos.importarArchivosDirectos();
                       } else {
-                        // TODO: Conectar aquí el iap_service.dart
-                        // Ejemplo: await IAPService.iniciarProcesoCompra(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    'Lanzando Compuerta Parental y Pago...')));
+                        // Flujo: Compuerta Parental → Pago
+                        await _iniciarFlujoCompra();
                       }
                     },
                   ),
@@ -417,6 +451,37 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     );
   }
 
+  /// Flujo completo del paywall:
+  /// 1. Compuerta Parental (suma matemática)
+  /// 2. Si acierta → Pantalla de pago (Google Play Billing)
+  /// 3. Si compra exitosa → desbloqueo permanente
+  Future<void> _iniciarFlujoCompra() async {
+    // Paso 1: Compuerta Parental
+    final bool? pasoCompuerta = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const ParentalGateScreen()),
+    );
+
+    if (pasoCompuerta != true || !mounted) return;
+
+    // Paso 2: Pantalla de Pago
+    final bool? compraExitosa = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const PremiumPaymentScreen()),
+    );
+
+    if (compraExitosa == true && mounted) {
+      setState(() => _pasePremiumDesbloqueado = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('🎉 ¡Premium desbloqueado! Ya puedes importar dibujos.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   Widget _buildHerramientaIcono(
       {required IconData icono,
       required Color color,
@@ -429,7 +494,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
         width: 100,
         height: 100,
         decoration: BoxDecoration(
-          color: activo ? color.withOpacity(0.2) : Colors.grey.shade100,
+          color: activo ? color.withValues(alpha: 0.2) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20),
           border:
               Border.all(color: activo ? color : Colors.transparent, width: 3),
@@ -464,7 +529,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 20,
                     spreadRadius: 5)
               ]),
@@ -631,6 +696,20 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                       color: Colors.red),
                   Row(
                     children: [
+                      ValueListenableBuilder<bool>(
+                        valueListenable:
+                            ServicioAudio.instance.audioActivoNotifier,
+                        builder: (context, audioActivo, _) {
+                          return _buildBotonFlotante(
+                            audioActivo
+                                ? Icons.volume_up_rounded
+                                : Icons.volume_off_rounded,
+                            _toggleAudio,
+                            color: audioActivo ? Colors.green : Colors.grey,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
                       _buildBotonFlotante(
                           Icons.camera_alt_rounded, _guardarImagen,
                           color: Colors.blue),
@@ -672,7 +751,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 10)
                             ]),
                         child: Column(
@@ -708,7 +787,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 10)
                             ]),
                         child: modoHerramienta == 'sellos'
@@ -726,7 +805,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                  color: Colors.amber.withOpacity(0.4),
+                                  color: Colors.amber.withValues(alpha: 0.4),
                                   blurRadius: 10,
                                   offset: const Offset(0, 5))
                             ]),
@@ -769,7 +848,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)
+            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
           ]),
       child: IconButton(
           icon: Icon(icono, color: color, size: 24), onPressed: onTap),
@@ -783,7 +862,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)
+            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
           ]),
       child: Row(
         children: [
@@ -825,10 +904,13 @@ class _JuegoPinturaState extends State<JuegoPintura> {
             children: coleccionSellos.keys.map((catIcon) {
               final isActivo = categoriaSelloActual == catIcon;
               return GestureDetector(
-                onTap: () => setState(() {
-                  categoriaSelloActual = catIcon;
-                  selloActual = coleccionSellos[catIcon]!.first;
-                }),
+                onTap: () {
+                  _playPop();
+                  setState(() {
+                    categoriaSelloActual = catIcon;
+                    selloActual = coleccionSellos[catIcon]!.first;
+                  });
+                },
                 child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Opacity(
@@ -847,7 +929,10 @@ class _JuegoPinturaState extends State<JuegoPintura> {
             itemBuilder: (context, index) {
               final sello = coleccionSellos[categoriaSelloActual]![index];
               return GestureDetector(
-                onTap: () => setState(() => selloActual = sello),
+                onTap: () {
+                  _playPop();
+                  setState(() => selloActual = sello);
+                },
                 child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Center(
@@ -869,7 +954,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       itemCount: paletaBase.length,
       itemBuilder: (context, index) {
         final c = paletaBase[index];
-        final bool isSelected = colorSeleccionado.value == c.value;
+        final bool isSelected = colorSeleccionado == c;
         return GestureDetector(
           onTap: () => _seleccionarOMezclarColor(c),
           child: Container(
@@ -882,7 +967,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     color: isSelected ? Colors.black : Colors.black12,
                     width: isSelected ? 3 : 2),
                 boxShadow: isSelected
-                    ? [BoxShadow(color: c.withOpacity(0.5), blurRadius: 10)]
+                    ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 10)]
                     : []),
             child: c == Colors.white
                 ? const Icon(Icons.cleaning_services_rounded,
@@ -922,7 +1007,7 @@ class DibujoPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (var trazo in trazos) {
       final paint = Paint()
-        ..color = trazo.esMarcador ? trazo.color.withOpacity(0.5) : trazo.color
+        ..color = trazo.esMarcador ? trazo.color.withValues(alpha: 0.5) : trazo.color
         ..strokeWidth = trazo.grosor
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round

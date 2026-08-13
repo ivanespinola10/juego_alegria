@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'dart:math';
 import 'iap_service.dart';
 
+/// Compuerta Parental: muestra una suma matemática simple.
+/// Devuelve `true` si el adulto resuelve la suma, `false` si cancela.
 class ParentalGateScreen extends StatefulWidget {
   const ParentalGateScreen({super.key});
 
@@ -31,10 +33,7 @@ class _ParentalGateScreenState extends State<ParentalGateScreen> {
   void _checkAnswer() {
     final int? answer = int.tryParse(_answerController.text.trim());
     if (answer != null && answer == (num1 + num2)) {
-      // Respuesta correcta, avanzar a la pantalla premium
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const PremiumPaymentScreen()),
-      );
+      Navigator.of(context).pop(true); // ✅ Devuelve true al caller
     } else {
       setState(() {
         _errorMessage = 'Respuesta incorrecta. Inténtalo de nuevo.';
@@ -47,7 +46,7 @@ class _ParentalGateScreenState extends State<ParentalGateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF0F5), // Rosa pastel suave
+      backgroundColor: const Color(0xFFFFF0F5),
       body: Center(
         child: SingleChildScrollView(
           child: Container(
@@ -58,7 +57,7 @@ class _ParentalGateScreenState extends State<ParentalGateScreen> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 )
@@ -67,10 +66,18 @@ class _ParentalGateScreenState extends State<ParentalGateScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Botón para cerrar/cancelar
+                Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Color(0xFFD3D3D3)),
+                    onPressed: () => Navigator.of(context).pop(false),
+                  ),
+                ),
                 const Icon(Icons.lock_rounded, size: 64, color: Color(0xFFD3D3D3)),
                 const SizedBox(height: 16),
                 const Text(
-                  '¡Fin de la prueba!',
+                  'Zona de Padres',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -111,6 +118,7 @@ class _ParentalGateScreenState extends State<ParentalGateScreen> {
                     hintText: 'Respuesta',
                     hintStyle: const TextStyle(color: Color(0xFFD3D3D3)),
                   ),
+                  onSubmitted: (_) => _checkAnswer(),
                 ),
                 if (_errorMessage.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -126,7 +134,7 @@ class _ParentalGateScreenState extends State<ParentalGateScreen> {
                   child: ElevatedButton(
                     onPressed: _checkAnswer,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFAEC6CF), // Azul pastel
+                      backgroundColor: const Color(0xFFAEC6CF),
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -148,6 +156,8 @@ class _ParentalGateScreenState extends State<ParentalGateScreen> {
   }
 }
 
+/// Pantalla de pago Premium.
+/// Devuelve `true` si la compra fue exitosa, `false` si el usuario cancela.
 class PremiumPaymentScreen extends StatefulWidget {
   const PremiumPaymentScreen({super.key});
 
@@ -165,7 +175,7 @@ class _PremiumPaymentScreenState extends State<PremiumPaymentScreen> {
 
   void _onIapChanged() {
     if (IAPService().isPremium && mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true); // ✅ Devuelve true = compra exitosa
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('¡Compra exitosa! Contenido desbloqueado.'),
@@ -185,20 +195,31 @@ class _PremiumPaymentScreenState extends State<PremiumPaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final iap = IAPService();
-    String price = "Cargando precio...";
+    // Si hay productos cargados de Google Play, usar el precio real.
+    // Si la tienda no está disponible, indicarlo.
+    // En cualquier otro caso (cargando o error de red), mostrar precio de respaldo.
+    String price;
     if (iap.products.isNotEmpty) {
       price = iap.products.first.price;
     } else if (!iap.isAvailable) {
       price = "Tienda no disponible";
+    } else {
+      // Precio de respaldo: cargando o sin respuesta de Google Play
+      price = "\$1.99 USD";
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE6E6FA), // Lavanda pastel
+      backgroundColor: const Color(0xFFE6E6FA),
       appBar: AppBar(
-        title: const Text('Área para Padres - Premium', style: TextStyle(color: Color(0xFF5A5A5A))),
+        title: const Text('Área para Padres - Premium',
+            style: TextStyle(color: Color(0xFF5A5A5A))),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFF5A5A5A)),
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
       ),
       body: Center(
         child: Container(
@@ -210,7 +231,8 @@ class _PremiumPaymentScreenState extends State<PremiumPaymentScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.star_rounded, size: 80, color: Color(0xFFFFDFBA)), // Naranja/amarillo pastel
+              const Icon(Icons.star_rounded,
+                  size: 80, color: Color(0xFFFFDFBA)),
               const SizedBox(height: 24),
               const Text(
                 'Desbloquea todo el contenido',
@@ -224,27 +246,36 @@ class _PremiumPaymentScreenState extends State<PremiumPaymentScreen> {
               const SizedBox(height: 16),
               Text(
                 'Precio: $price',
-                style: const TextStyle(fontSize: 18, color: Color(0xFF909090)),
+                style:
+                    const TextStyle(fontSize: 18, color: Color(0xFF909090)),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: (iap.products.isNotEmpty || !kReleaseMode) ? () {
-                  iap.buyPremium();
-                } : null,
+                onPressed:
+                    (iap.products.isNotEmpty || !kReleaseMode)
+                        ? () {
+                            iap.buyPremium();
+                          }
+                        : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFB7B2), // Rosa pastel
+                  backgroundColor: const Color(0xFFFFB7B2),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                 ),
-                child: const Text('Comprar ahora', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: const Text('Comprar ahora',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () {
                   iap.restorePurchases();
                 },
-                child: const Text('Restaurar compras', style: TextStyle(color: Color(0xFF7A7A7A))),
+                child: const Text('Restaurar compras',
+                    style: TextStyle(color: Color(0xFF7A7A7A))),
               ),
             ],
           ),
@@ -253,4 +284,3 @@ class _PremiumPaymentScreenState extends State<PremiumPaymentScreen> {
     );
   }
 }
-
