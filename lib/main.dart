@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'menu_principal.dart';
+import 'hub_menu.dart'; // 🚀 CAMBIADO: Ahora la app inicia correctamente en el Hub
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +26,7 @@ class AlegriaApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
         // Si descargas una fuente como 'Fredoka' o 'ComicSans', agrégala aquí
       ),
-      home: const MenuPrincipal(),
+      home: const HubMenu(), // 🚀 CAMBIADO: La portada ahora es el Hub
     );
   }
 }

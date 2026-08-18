@@ -8,8 +8,6 @@ import 'package:confetti/confetti.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'servicio_audio.dart';
-import 'iap_service.dart';
-import 'trial_manager.dart';
 import 'gestor_archivos.dart';
 import 'package:flutter/rendering.dart';
 
@@ -49,23 +47,19 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   int indiceActual = 0;
   Key lienzoKey = UniqueKey();
 
-  // 🚀 LLAVE PARA TOMAR LA FOTO DEL LIENZO
   final GlobalKey _capturaKey = GlobalKey();
 
   late ConfettiController _confettiController;
   late final ValueNotifier<bool> _blindajeNotifier;
   final ValueNotifier<List<Widget>> _sellosNotifier = ValueNotifier([]);
 
-  // 🚀 NOTIFICADOR PARA LOS DIBUJOS A MANO ALZADA
   final ValueNotifier<List<Trazo>> _trazosNotifier = ValueNotifier([]);
   Trazo? _trazoActual;
 
   String? plantillaSeleccionada;
 
-  // Estado del Paywall (Pase Premium)
-  bool _pasePremiumDesbloqueado = false;
-
-  // Audio ambiental manejado por ServicioAudio
+  // 🚀 CACHÉ DE MEMORIA PARA ELIMINAR EL LAG DEL CONFETI
+  final Map<Size, Path> _estrellasEnCache = {};
 
   final List<String> _plantillasAbecedario = [
     'assets/Abecedario_MundoAlegria/1_letra_A.png',
@@ -199,15 +193,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     _blindajeNotifier = ValueNotifier(_necesitaBlindajeMouse);
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 3));
-    _verificarCompraGuardada();
     _iniciarMusica();
-  }
-
-  Future<void> _verificarCompraGuardada() async {
-    final esPremium = await IAPService.checkSavedPremium();
-    if (mounted) {
-      setState(() => _pasePremiumDesbloqueado = esPremium);
-    }
   }
 
   Future<void> _iniciarMusica() async {
@@ -416,25 +402,17 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                       _mostrarSubpantallaPlantillas();
                     },
                   ),
-                  // BOTÓN DE IMPORTAR CON PAYWALL
+                  // 🚀 BOTÓN IMPORTAR LIBERADO (Sin Candado)
                   _buildHerramientaIcono(
-                    icono: _pasePremiumDesbloqueado
-                        ? Icons.add_photo_alternate_rounded
-                        : Icons.lock_rounded,
+                    icono: Icons.add_photo_alternate_rounded,
                     color: Colors.indigo,
-                    titulo:
-                        _pasePremiumDesbloqueado ? "Importar" : "Importar 🔒",
+                    titulo: "Importar",
                     activo: false,
                     onTap: () async {
                       _playPop();
                       Navigator.pop(context);
-                      if (_pasePremiumDesbloqueado) {
-                        // Ya es premium: abrir galería directamente
-                        await GestorArchivos.importarArchivosDirectos();
-                      } else {
-                        // Flujo: Compuerta Parental → Pago
-                        await _iniciarFlujoCompra();
-                      }
+                      // Flujo directo: Al ser una App de Pago Único, ya tienen acceso total.
+                      await GestorArchivos.importarArchivosDirectos();
                     },
                   ),
                 ],
@@ -449,37 +427,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
         ),
       ),
     );
-  }
-
-  /// Flujo completo del paywall:
-  /// 1. Compuerta Parental (suma matemática)
-  /// 2. Si acierta → Pantalla de pago (Google Play Billing)
-  /// 3. Si compra exitosa → desbloqueo permanente
-  Future<void> _iniciarFlujoCompra() async {
-    // Paso 1: Compuerta Parental
-    final bool? pasoCompuerta = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => const ParentalGateScreen()),
-    );
-
-    if (pasoCompuerta != true || !mounted) return;
-
-    // Paso 2: Pantalla de Pago
-    final bool? compraExitosa = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => const PremiumPaymentScreen()),
-    );
-
-    if (compraExitosa == true && mounted) {
-      setState(() => _pasePremiumDesbloqueado = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('🎉 ¡Premium desbloqueado! Ya puedes importar dibujos.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
   }
 
   Widget _buildHerramientaIcono(
@@ -516,72 +463,77 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   }
 
   void _mostrarSubpantallaPlantillas() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: 500,
-          height: 400,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-              color: const Color(0xFFFFF0F5),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    spreadRadius: 5)
-              ]),
-          child: Column(
-            children: [
-              const Text("Plantillas",
-                  style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple)),
-              const SizedBox(height: 20),
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                  ),
-                  itemCount: _plantillasAbecedario.length,
-                  itemBuilder: (context, index) {
-                    final ruta = _plantillasAbecedario[index];
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          plantillaSeleccionada = ruta;
-                          _limpiarLienzoCompleto();
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          border:
-                              Border.all(color: Colors.teal.shade200, width: 2),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
-                          child: Image.asset(ruta, fit: BoxFit.contain),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cerrar",
-                      style: TextStyle(fontSize: 16, color: Colors.grey))),
-            ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        padding:
+            const EdgeInsets.only(top: 15, left: 20, right: 20, bottom: 20),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFF0F5),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
           ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 50,
+              height: 5,
+              margin: const EdgeInsets.only(bottom: 15),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const Text(
+              "Plantillas",
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.deepPurple,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: _plantillasAbecedario.length,
+                itemBuilder: (context, index) {
+                  final ruta = _plantillasAbecedario[index];
+                  return GestureDetector(
+                    onTap: () {
+                      _playPop();
+                      setState(() {
+                        plantillaSeleccionada = ruta;
+                        _limpiarLienzoCompleto();
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        border:
+                            Border.all(color: Colors.teal.shade200, width: 2),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: Image.asset(ruta, fit: BoxFit.contain),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -615,69 +567,81 @@ class _JuegoPinturaState extends State<JuegoPintura> {
               panEnabled:
                   modoHerramienta == 'pintura' || modoHerramienta == 'sellos',
               scaleEnabled: true,
-              child: Center(
-                child: RepaintBoundary(
-                  key: _capturaKey,
-                  // 🚀 MAGIA DEL ASPECT RATIO: Bloquea las proporciones a 4:3
-                  child: AspectRatio(
-                    aspectRatio: 4 / 3,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        IgnorePointer(
-                          ignoring: modoHerramienta != 'pintura',
-                          child: RepaintBoundary(child: lienzoBase),
-                        ),
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            ignoring: modoHerramienta != 'pincel' &&
-                                modoHerramienta != 'marcador',
-                            child: GestureDetector(
-                              onPanStart: (details) {
-                                _trazoActual = Trazo(
-                                  puntos: [details.localPosition],
-                                  color: colorSeleccionado,
-                                  grosor: modoHerramienta == 'marcador'
-                                      ? 25.0
-                                      : 8.0,
-                                  esMarcador: modoHerramienta == 'marcador',
-                                );
-                                _trazosNotifier.value =
-                                    List.from(_trazosNotifier.value)
-                                      ..add(_trazoActual!);
-                              },
-                              onPanUpdate: (details) {
-                                if (_trazoActual != null) {
-                                  _trazoActual!.puntos
-                                      .add(details.localPosition);
-                                  _trazosNotifier.value =
-                                      List.from(_trazosNotifier.value);
-                                }
-                              },
-                              onPanEnd: (details) => _trazoActual = null,
-                              child: ValueListenableBuilder<List<Trazo>>(
-                                valueListenable: _trazosNotifier,
-                                builder: (context, trazos, _) =>
-                                    CustomPaint(painter: DibujoPainter(trazos)),
+              // 🚀 LIENZO RESPONSIVO (LayoutBuilder)
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return Center(
+                    child: SizedBox(
+                      height: constraints
+                          .maxHeight, // Estira al máximo verticalmente
+                      child: RepaintBoundary(
+                        key: _capturaKey,
+                        child: AspectRatio(
+                          aspectRatio:
+                              4 / 3, // Mantiene proporción para no deformar
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              IgnorePointer(
+                                ignoring: modoHerramienta != 'pintura',
+                                child: RepaintBoundary(child: lienzoBase),
                               ),
-                            ),
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  ignoring: modoHerramienta != 'pincel' &&
+                                      modoHerramienta != 'marcador',
+                                  child: GestureDetector(
+                                    onPanStart: (details) {
+                                      _trazoActual = Trazo(
+                                        puntos: [details.localPosition],
+                                        color: colorSeleccionado,
+                                        grosor: modoHerramienta == 'marcador'
+                                            ? 25.0
+                                            : 8.0,
+                                        esMarcador:
+                                            modoHerramienta == 'marcador',
+                                      );
+                                      _trazosNotifier.value =
+                                          List.from(_trazosNotifier.value)
+                                            ..add(_trazoActual!);
+                                    },
+                                    onPanUpdate: (details) {
+                                      if (_trazoActual != null) {
+                                        _trazoActual!.puntos
+                                            .add(details.localPosition);
+                                        _trazosNotifier.value =
+                                            List.from(_trazosNotifier.value);
+                                      }
+                                    },
+                                    onPanEnd: (details) => _trazoActual = null,
+                                    child: ValueListenableBuilder<List<Trazo>>(
+                                      valueListenable: _trazosNotifier,
+                                      builder: (context, trazos, _) =>
+                                          CustomPaint(
+                                              painter: DibujoPainter(trazos)),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              ValueListenableBuilder<List<Widget>>(
+                                  valueListenable: _sellosNotifier,
+                                  builder: (context, sellos, child) =>
+                                      Stack(children: sellos)),
+                              if (modoHerramienta == 'sellos')
+                                Positioned.fill(
+                                  child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTapUp: _pegarSello,
+                                      child:
+                                          Container(color: Colors.transparent)),
+                                ),
+                            ],
                           ),
                         ),
-                        ValueListenableBuilder<List<Widget>>(
-                            valueListenable: _sellosNotifier,
-                            builder: (context, sellos, child) =>
-                                Stack(children: sellos)),
-                        if (modoHerramienta == 'sellos')
-                          Positioned.fill(
-                            child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTapUp: _pegarSello,
-                                child: Container(color: Colors.transparent)),
-                          ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           ),
@@ -797,7 +761,10 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
-                      onTap: () => _confettiController.play(),
+                      onTap: () {
+                        _playPop();
+                        _confettiController.play();
+                      },
                       child: Container(
                         width: 60,
                         decoration: BoxDecoration(
@@ -848,7 +815,8 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
           ]),
       child: IconButton(
           icon: Icon(icono, color: color, size: 24), onPressed: onTap),
@@ -862,7 +830,8 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
           ]),
       child: Row(
         children: [
@@ -967,7 +936,10 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     color: isSelected ? Colors.black : Colors.black12,
                     width: isSelected ? 3 : 2),
                 boxShadow: isSelected
-                    ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 10)]
+                    ? [
+                        BoxShadow(
+                            color: c.withValues(alpha: 0.5), blurRadius: 10)
+                      ]
                     : []),
             child: c == Colors.white
                 ? const Icon(Icons.cleaning_services_rounded,
@@ -980,12 +952,16 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   }
 
   Path _dibujarEstrella(Size size) {
+    if (_estrellasEnCache.containsKey(size)) {
+      return _estrellasEnCache[size]!;
+    }
     double degToRad(double deg) => deg * (math.pi / 180.0);
     final halfWidth = size.width / 2;
     final externalRadius = halfWidth;
     final internalRadius = halfWidth / 2.5;
     final degreesPerStep = degToRad(360 / 5);
     final halfDegreesPerStep = degreesPerStep / 2;
+
     final path = Path()..moveTo(size.width, halfWidth);
     for (double step = 0; step < degToRad(360); step += degreesPerStep) {
       path.lineTo(halfWidth + externalRadius * math.cos(step),
@@ -994,11 +970,13 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           halfWidth + internalRadius * math.cos(step + halfDegreesPerStep),
           halfWidth + internalRadius * math.sin(step + halfDegreesPerStep));
     }
-    return path..close();
+    path.close();
+    _estrellasEnCache[size] = path;
+
+    return path;
   }
 }
 
-// 🚀 CLASE PINTORA PARA EL PINCEL Y MARCADOR
 class DibujoPainter extends CustomPainter {
   final List<Trazo> trazos;
   DibujoPainter(this.trazos);
@@ -1007,7 +985,8 @@ class DibujoPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (var trazo in trazos) {
       final paint = Paint()
-        ..color = trazo.esMarcador ? trazo.color.withValues(alpha: 0.5) : trazo.color
+        ..color =
+            trazo.esMarcador ? trazo.color.withValues(alpha: 0.5) : trazo.color
         ..strokeWidth = trazo.grosor
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round

@@ -17,9 +17,9 @@ dependencies:
   permission_handler: ^11.3.1
   shared_preferences: ^2.2.3
   file_picker: ^8.0.3
-  share_plus: ^9.0.0  # 🚀 NUEVO PAQUETE PARA GUARDAR/COMPARTIR FOTOS
+  share_plus: ^9.0.0  # 🚀 PAQUETE PARA GUARDAR/COMPARTIR FOTOS
   audioplayers: ^5.2.1 # 🚀 PAQUETE PARA AUDIO AMBIENTAL Y EFECTOS
-  in_app_purchase: ^3.1.13 # 🚀 PAQUETE PARA PAGOS REALES
+  # 🗑️ SE ELIMINÓ in_app_purchase PORQUE AHORA ES APP DE PAGO ÚNICO
 
 dev_dependencies:
   flutter_test:

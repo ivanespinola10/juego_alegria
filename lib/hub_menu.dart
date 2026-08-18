@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'menu_principal.dart'; // Módulo actual de pintura
-import 'trial_manager.dart'; // Para ParentalGateScreen
+import 'menu_principal.dart';
 
 class HubMenu extends StatefulWidget {
   const HubMenu({super.key});
@@ -74,7 +73,8 @@ class _HubMenuState extends State<HubMenu> {
                           onTap: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const MenuPrincipal()),
+                              MaterialPageRoute(
+                                  builder: (context) => const MenuPrincipal()),
                             );
                           },
                         ),
@@ -85,9 +85,15 @@ class _HubMenuState extends State<HubMenu> {
                           color: const Color(0xFFB5EAD7), // Verde pastel
                           isComingSoon: true,
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const ParentalGateScreen()),
+                            // 🚀 SIMPLEMENTE MUESTRA UN AVISO SIN ROMPER LA APP
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('¡Rompecabezas muy pronto!',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                                backgroundColor: Colors.teal,
+                                duration: Duration(seconds: 2),
+                              ),
                             );
                           },
                         ),
@@ -125,7 +131,9 @@ class _HubMenuState extends State<HubMenu> {
                     ],
                   ),
                   child: Icon(
-                    _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                    _isMuted
+                        ? Icons.volume_off_rounded
+                        : Icons.volume_up_rounded,
                     color: const Color(0xFF7A7A7A),
                     size: 32,
                   ),
@@ -190,12 +198,14 @@ class _HubMenuState extends State<HubMenu> {
                 top: 24,
                 right: 24,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(Icons.lock_rounded, color: Colors.white, size: 28),
+                  child: const Icon(Icons.lock_rounded,
+                      color: Colors.white, size: 28),
                 ),
               ),
           ],

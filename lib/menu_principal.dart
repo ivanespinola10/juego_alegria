@@ -1,12 +1,11 @@
 import 'dart:io';
-import 'dart:math'; // 🚀 NECESARIO PARA LA COMPUERTA PARENTAL
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'idiomas.dart'; // 🚀 TRADUCTOR CONECTADO
+import 'idiomas.dart';
 import 'gestor_archivos.dart';
 import 'juego_pintura.dart';
 import 'servicio_audio.dart';
-import 'iap_service.dart'; // 🚀 IAP CONECTADO PARA PRODUCCIÓN
 
 class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key});
@@ -15,11 +14,11 @@ class MenuPrincipal extends StatefulWidget {
   State<MenuPrincipal> createState() => _MenuPrincipalState();
 }
 
-class _MenuPrincipalState extends State<MenuPrincipal> {
+class _MenuPrincipalState extends State<MenuPrincipal>
+    with WidgetsBindingObserver {
   List<CategoriaDinamica> _categoriasUsuario = [];
   bool _cargando = true;
 
-  // 🚀 NUEVA LISTA DE PACKS DE FÁBRICA
   final List<Map<String, dynamic>> _packsEstaticos = [
     {
       "titulo": "Capibaras",
@@ -102,8 +101,24 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _cargarCarpetas();
     ServicioAudio.instance.iniciarMusica();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      ServicioAudio.instance.pausarMusica();
+    } else if (state == AppLifecycleState.resumed) {
+      ServicioAudio.instance.reanudarMusica();
+    }
   }
 
   Future<void> _cargarCarpetas() async {
@@ -156,7 +171,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     );
   }
 
-  // 🚀 COMPUERTA PARENTAL (Seguridad exigida por Google)
+  // 🚀 COMPUERTA PARENTAL MANTENIDA (Exigida por Google para links externos)
   void _mostrarCompuertaParental() {
     ServicioAudio.instance.playPop();
     final Random rand = Random();
@@ -244,7 +259,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     );
   }
 
-  // 🚀 MENÚ DE AJUSTES PREMIUM
+  // 🚀 MENÚ DE PADRES (Ahora solo muestra Política de Privacidad)
   void _mostrarMenuAjustesPadres() {
     showDialog(
       context: context,
@@ -252,7 +267,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         return AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text("Ajustes Premium",
+          title: const Text("Información para Padres",
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontWeight: FontWeight.bold, color: Colors.deepPurple)),
@@ -260,30 +275,12 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.restore_rounded,
-                    color: Colors.green, size: 30),
-                title: const Text("Restaurar Compras",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Si cambiaste de celular"),
-                onTap: () {
-                  Navigator.pop(context);
-                  // 🚀 RESTAURAR COMPRAS VÍA GOOGLE PLAY BILLING
-                  IAPService().restorePurchases();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            'Restaurando compras conectando a Google Play...'),
-                        backgroundColor: Colors.green),
-                  );
-                },
-              ),
-              const Divider(),
-              ListTile(
                 leading: const Icon(Icons.privacy_tip_rounded,
                     color: Colors.blue, size: 30),
                 title: const Text("Política de Privacidad"),
                 onTap: () {
                   Navigator.pop(context);
+                  // Aquí eventualmente colocarás tu URL de Política de Privacidad
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                         content: Text('Abriendo política de privacidad...')),
