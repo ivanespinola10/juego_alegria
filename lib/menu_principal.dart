@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'idiomas.dart';
@@ -171,129 +170,6 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     );
   }
 
-  // 🚀 COMPUERTA PARENTAL MANTENIDA (Exigida por Google para links externos)
-  void _mostrarCompuertaParental() {
-    ServicioAudio.instance.playPop();
-    final Random rand = Random();
-    final int num1 = rand.nextInt(10) + 5;
-    final int num2 = rand.nextInt(10) + 5;
-    final int respuestaCorrecta = num1 + num2;
-    final TextEditingController ctrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Center(
-            child: Column(
-              children: [
-                Icon(Icons.lock_rounded, size: 40, color: Colors.grey),
-                SizedBox(height: 10),
-                Text("Zona de Padres",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                  "Pide ayuda a un adulto.\nPara continuar, resuelve la suma:",
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 15),
-              Text("$num1 + $num2 = ?",
-                  style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple)),
-              const SizedBox(height: 15),
-              TextField(
-                controller: ctrl,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  hintText: "Respuesta",
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15)),
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.spaceEvenly,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child:
-                  const Text("Cancelar", style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueGrey,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15)),
-              ),
-              onPressed: () {
-                if (ctrl.text.trim() == respuestaCorrecta.toString()) {
-                  Navigator.pop(context); // Cierra la compuerta
-                  _mostrarMenuAjustesPadres(); // Abre ajustes reales
-                } else {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Respuesta incorrecta.'),
-                        backgroundColor: Colors.red),
-                  );
-                }
-              },
-              child: const Text("Comprobar",
-                  style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // 🚀 MENÚ DE PADRES (Ahora solo muestra Política de Privacidad)
-  void _mostrarMenuAjustesPadres() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text("Información para Padres",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.deepPurple)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.privacy_tip_rounded,
-                    color: Colors.blue, size: 30),
-                title: const Text("Política de Privacidad"),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Aquí eventualmente colocarás tu URL de Política de Privacidad
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Abriendo política de privacidad...')),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -330,11 +206,26 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                     ),
                     Row(
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.settings,
-                              color: Colors.deepPurple, size: 28),
-                          onPressed: _mostrarCompuertaParental,
-                        ),
+                        // 🚀 NUEVO BOTÓN IMPORTAR EN EL MENÚ PRINCIPAL
+                        if (!kIsWeb)
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20)),
+                              elevation: 3,
+                            ),
+                            icon: const Icon(Icons.add_photo_alternate_rounded),
+                            label: const Text("Importar Dibujos",
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            onPressed: () async {
+                              ServicioAudio.instance.playPop();
+                              await GestorArchivos.importarArchivosDirectos();
+                              _cargarCarpetas(); // 🚀 MAGIA: Se actualiza solo al terminar
+                            },
+                          ),
+                        const SizedBox(width: 15),
                         ValueListenableBuilder<bool>(
                           valueListenable:
                               ServicioAudio.instance.audioActivoNotifier,

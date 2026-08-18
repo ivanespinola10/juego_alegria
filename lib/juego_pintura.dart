@@ -1,17 +1,18 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:floodfill_image/floodfill_image.dart';
-import 'package:confetti/confetti.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'servicio_audio.dart';
-import 'gestor_archivos.dart';
 import 'package:flutter/rendering.dart';
 
-// 🚀 CLASE PARA GUARDAR LOS TRAZOS A MANO ALZADA
+// 🚀 IMPORTS NUEVOS PARA ESTRELLAS Y TRADUCTOR
+import 'package:in_app_review/in_app_review.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'idiomas.dart';
+import 'servicio_audio.dart';
+
 class Trazo {
   final List<Offset> puntos;
   final Color color;
@@ -49,47 +50,10 @@ class _JuegoPinturaState extends State<JuegoPintura> {
 
   final GlobalKey _capturaKey = GlobalKey();
 
-  late ConfettiController _confettiController;
   late final ValueNotifier<bool> _blindajeNotifier;
   final ValueNotifier<List<Widget>> _sellosNotifier = ValueNotifier([]);
-
   final ValueNotifier<List<Trazo>> _trazosNotifier = ValueNotifier([]);
   Trazo? _trazoActual;
-
-  String? plantillaSeleccionada;
-
-  // 🚀 CACHÉ DE MEMORIA PARA ELIMINAR EL LAG DEL CONFETI
-  final Map<Size, Path> _estrellasEnCache = {};
-
-  final List<String> _plantillasAbecedario = [
-    'assets/Abecedario_MundoAlegria/1_letra_A.png',
-    'assets/Abecedario_MundoAlegria/2_letra_B.png',
-    'assets/Abecedario_MundoAlegria/3_letra_C.png',
-    'assets/Abecedario_MundoAlegria/4_letra_D.png',
-    'assets/Abecedario_MundoAlegria/5_letra_E.png',
-    'assets/Abecedario_MundoAlegria/6_letra_F.png',
-    'assets/Abecedario_MundoAlegria/7_letra_G.png',
-    'assets/Abecedario_MundoAlegria/8_letra_H.png',
-    'assets/Abecedario_MundoAlegria/9_letra_I.png',
-    'assets/Abecedario_MundoAlegria/10_letra_J.png',
-    'assets/Abecedario_MundoAlegria/11_letra_K.png',
-    'assets/Abecedario_MundoAlegria/12_letra_L.png',
-    'assets/Abecedario_MundoAlegria/13_letra_M.png',
-    'assets/Abecedario_MundoAlegria/14_letra_N.png',
-    'assets/Abecedario_MundoAlegria/15_letra_O.png',
-    'assets/Abecedario_MundoAlegria/16_letra_P.png',
-    'assets/Abecedario_MundoAlegria/17_letra_Q.png',
-    'assets/Abecedario_MundoAlegria/18_letra_R.png',
-    'assets/Abecedario_MundoAlegria/19_letra_S.png',
-    'assets/Abecedario_MundoAlegria/20_letra_T.png',
-    'assets/Abecedario_MundoAlegria/21_letra_U.png',
-    'assets/Abecedario_MundoAlegria/22_letra_V.png',
-    'assets/Abecedario_MundoAlegria/23_letra_W.png',
-    'assets/Abecedario_MundoAlegria/24_letra_X.png',
-    'assets/Abecedario_MundoAlegria/25_letra_Y.png',
-    'assets/Abecedario_MundoAlegria/26_letra_Z.png',
-    'assets/Abecedario_MundoAlegria/portada.png',
-  ];
 
   // ESTADOS DE HERRAMIENTA
   String modoHerramienta = 'pintura';
@@ -191,8 +155,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     colorSeleccionado = widget.colorBase;
     selloActual = coleccionSellos['⭐']!.first;
     _blindajeNotifier = ValueNotifier(_necesitaBlindajeMouse);
-    _confettiController =
-        ConfettiController(duration: const Duration(seconds: 3));
     _iniciarMusica();
   }
 
@@ -210,7 +172,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
 
   @override
   void dispose() {
-    _confettiController.dispose();
     _blindajeNotifier.dispose();
     _sellosNotifier.dispose();
     _trazosNotifier.dispose();
@@ -221,7 +182,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     setState(() {
       indiceActual = (indiceActual + paso) % widget.dibujos.length;
       if (indiceActual < 0) indiceActual = widget.dibujos.length - 1;
-      plantillaSeleccionada = null;
       _limpiarLienzoCompleto();
     });
   }
@@ -247,6 +207,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     }
   }
 
+  // 🚀 FUNCIÓN DE GUARDADO CON SOLICITUD DE RESEÑA (IN-APP REVIEW)
   Future<void> _guardarImagen() async {
     try {
       RenderRepaintBoundary boundary = _capturaKey.currentContext!
@@ -261,8 +222,30 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           await File('${directory.path}/obra_maestra.png').create();
       await imagePath.writeAsBytes(pngBytes);
 
+      // 1. Compartimos usando el texto traducido automáticamente
       await Share.shareXFiles([XFile(imagePath.path)],
-          text: '¡Mira mi obra de arte creada en El Mundo de Alegría!');
+          text: Traductor.get('compartir_texto'));
+
+      // 2. Lógica silenciosa para pedir reseña de Google Play
+      if (!kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        int dibujosGuardados = (prefs.getInt('dibujos_guardados') ?? 0) + 1;
+        await prefs.setInt('dibujos_guardados', dibujosGuardados);
+
+        bool yaCalifico = prefs.getBool('ya_califico') ?? false;
+
+        // Si es el tercer dibujo y aún no ha calificado...
+        if (dibujosGuardados == 3 && !yaCalifico) {
+          final InAppReview inAppReview = InAppReview.instance;
+          if (await inAppReview.isAvailable()) {
+            // Esperamos 2 segundos para no interrumpir el menú de compartir
+            await Future.delayed(const Duration(seconds: 2));
+            await inAppReview
+                .requestReview(); // 🌟 Lanza la tarjeta nativa de Google
+            await prefs.setBool('ya_califico', true); // No lo molestamos más
+          }
+        }
+      }
     } catch (e) {
       debugPrint("Error al guardar la imagen: $e");
     }
@@ -330,8 +313,8 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Caja de Herramientas",
-                  style: TextStyle(
+              Text(Traductor.get('caja_herramientas'),
+                  style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.deepPurple)),
@@ -344,7 +327,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   _buildHerramientaIcono(
                     icono: Icons.format_color_fill_rounded,
                     color: Colors.blue,
-                    titulo: "Pintura",
+                    titulo: Traductor.get('pintura'),
                     activo: modoHerramienta == 'pintura',
                     onTap: () {
                       _playPop();
@@ -358,7 +341,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   _buildHerramientaIcono(
                     icono: Icons.brush_rounded,
                     color: Colors.purple,
-                    titulo: "Pincel",
+                    titulo: Traductor.get('pincel'),
                     activo: modoHerramienta == 'pincel',
                     onTap: () {
                       _playPop();
@@ -369,7 +352,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   _buildHerramientaIcono(
                     icono: Icons.draw_rounded,
                     color: Colors.green,
-                    titulo: "Marcador",
+                    titulo: Traductor.get('marcador'),
                     activo: modoHerramienta == 'marcador',
                     onTap: () {
                       _playPop();
@@ -380,7 +363,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   _buildHerramientaIcono(
                     icono: Icons.cleaning_services_rounded,
                     color: Colors.grey.shade600,
-                    titulo: "Borrador",
+                    titulo: Traductor.get('borrador'),
                     activo: colorSeleccionado == Colors.white,
                     onTap: () {
                       _playPop();
@@ -391,28 +374,17 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                       Navigator.pop(context);
                     },
                   ),
+                  // 🚀 ¡AQUÍ ESTÁ DE VUELTA EL BOTÓN DE SELLOS/STICKERS!
                   _buildHerramientaIcono(
-                    icono: Icons.collections_rounded,
-                    color: Colors.teal,
-                    titulo: "Plantillas",
-                    activo: false,
+                    icono: Icons.star_rounded,
+                    color: Colors.orange,
+                    titulo: Traductor.get(
+                        'Stickers'), // Usamos mayúscula por si no está en el diccionario
+                    activo: modoHerramienta == 'sellos',
                     onTap: () {
                       _playPop();
+                      setState(() => modoHerramienta = 'sellos');
                       Navigator.pop(context);
-                      _mostrarSubpantallaPlantillas();
-                    },
-                  ),
-                  // 🚀 BOTÓN IMPORTAR LIBERADO (Sin Candado)
-                  _buildHerramientaIcono(
-                    icono: Icons.add_photo_alternate_rounded,
-                    color: Colors.indigo,
-                    titulo: "Importar",
-                    activo: false,
-                    onTap: () async {
-                      _playPop();
-                      Navigator.pop(context);
-                      // Flujo directo: Al ser una App de Pago Único, ya tienen acceso total.
-                      await GestorArchivos.importarArchivosDirectos();
                     },
                   ),
                 ],
@@ -420,8 +392,9 @@ class _JuegoPinturaState extends State<JuegoPintura> {
               const SizedBox(height: 20),
               TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("Cerrar",
-                      style: TextStyle(fontSize: 16, color: Colors.grey))),
+                  child: Text(Traductor.get('cerrar'),
+                      style:
+                          const TextStyle(fontSize: 16, color: Colors.grey))),
             ],
           ),
         ),
@@ -462,87 +435,9 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     );
   }
 
-  void _mostrarSubpantallaPlantillas() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        padding:
-            const EdgeInsets.only(top: 15, left: 20, right: 20, bottom: 20),
-        decoration: const BoxDecoration(
-          color: Color(0xFFFFF0F5),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(30),
-            topRight: Radius.circular(30),
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 50,
-              height: 5,
-              margin: const EdgeInsets.only(bottom: 15),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade400,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const Text(
-              "Plantillas",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.deepPurple,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                ),
-                itemCount: _plantillasAbecedario.length,
-                itemBuilder: (context, index) {
-                  final ruta = _plantillasAbecedario[index];
-                  return GestureDetector(
-                    onTap: () {
-                      _playPop();
-                      setState(() {
-                        plantillaSeleccionada = ruta;
-                        _limpiarLienzoCompleto();
-                      });
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        border:
-                            Border.all(color: Colors.teal.shade200, width: 2),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(13),
-                        child: Image.asset(ruta, fit: BoxFit.contain),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final String rutaDibujo =
-        plantillaSeleccionada ?? widget.dibujos[indiceActual];
+    final String rutaDibujo = widget.dibujos[indiceActual];
     final ImageProvider proveedorImagen =
         (rutaDibujo.startsWith('assets/') || kIsWeb)
             ? AssetImage(rutaDibujo)
@@ -567,18 +462,15 @@ class _JuegoPinturaState extends State<JuegoPintura> {
               panEnabled:
                   modoHerramienta == 'pintura' || modoHerramienta == 'sellos',
               scaleEnabled: true,
-              // 🚀 LIENZO RESPONSIVO (LayoutBuilder)
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return Center(
                     child: SizedBox(
-                      height: constraints
-                          .maxHeight, // Estira al máximo verticalmente
+                      height: constraints.maxHeight,
                       child: RepaintBoundary(
                         key: _capturaKey,
                         child: AspectRatio(
-                          aspectRatio:
-                              4 / 3, // Mantiene proporción para no deformar
+                          aspectRatio: 4 / 3,
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
@@ -731,8 +623,10 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                                             : Icons.format_color_fill_rounded)),
                                 color: Colors.deepPurple,
                                 size: 26),
-                            const Text("Herram.",
-                                style: TextStyle(
+                            Text(
+                                Traductor.get('caja_herramientas')
+                                    .substring(0, 7), // Abreviado para el ícono
+                                style: const TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.deepPurple)),
@@ -759,46 +653,9 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                             : _buildColorPalette(),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        _playPop();
-                        _confettiController.play();
-                      },
-                      child: Container(
-                        width: 60,
-                        decoration: BoxDecoration(
-                            color: Colors.amber,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.amber.withValues(alpha: 0.4),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 5))
-                            ]),
-                        child: const Icon(Icons.check_rounded,
-                            color: Colors.white, size: 35),
-                      ),
-                    ),
                   ],
                 ),
               ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
-                Colors.green,
-                Colors.blue,
-                Colors.pink,
-                Colors.orange,
-                Colors.purple
-              ],
-              createParticlePath: _dibujarEstrella,
             ),
           ),
         ],
@@ -949,31 +806,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
         );
       },
     );
-  }
-
-  Path _dibujarEstrella(Size size) {
-    if (_estrellasEnCache.containsKey(size)) {
-      return _estrellasEnCache[size]!;
-    }
-    double degToRad(double deg) => deg * (math.pi / 180.0);
-    final halfWidth = size.width / 2;
-    final externalRadius = halfWidth;
-    final internalRadius = halfWidth / 2.5;
-    final degreesPerStep = degToRad(360 / 5);
-    final halfDegreesPerStep = degreesPerStep / 2;
-
-    final path = Path()..moveTo(size.width, halfWidth);
-    for (double step = 0; step < degToRad(360); step += degreesPerStep) {
-      path.lineTo(halfWidth + externalRadius * math.cos(step),
-          halfWidth + externalRadius * math.sin(step));
-      path.lineTo(
-          halfWidth + internalRadius * math.cos(step + halfDegreesPerStep),
-          halfWidth + internalRadius * math.sin(step + halfDegreesPerStep));
-    }
-    path.close();
-    _estrellasEnCache[size] = path;
-
-    return path;
   }
 }
 
