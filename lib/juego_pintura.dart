@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/rendering.dart';
 
-// 🚀 IMPORTS NUEVOS PARA ESTRELLAS Y TRADUCTOR
+// 🚀 IMPORTS PARA ESTRELLAS Y TRADUCTOR
 import 'package:in_app_review/in_app_review.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'idiomas.dart';
@@ -207,7 +207,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     }
   }
 
-  // 🚀 FUNCIÓN DE GUARDADO CON SOLICITUD DE RESEÑA (IN-APP REVIEW)
+  // 🚀 FUNCIÓN DE GUARDADO CON SOLICITUD DE RESEÑA
   Future<void> _guardarImagen() async {
     try {
       RenderRepaintBoundary boundary = _capturaKey.currentContext!
@@ -222,11 +222,11 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           await File('${directory.path}/obra_maestra.png').create();
       await imagePath.writeAsBytes(pngBytes);
 
-      // 1. Compartimos usando el texto traducido automáticamente
+      // Compartir con texto traducido
       await Share.shareXFiles([XFile(imagePath.path)],
           text: Traductor.get('compartir_texto'));
 
-      // 2. Lógica silenciosa para pedir reseña de Google Play
+      // Lógica de calificación en Google Play
       if (!kIsWeb) {
         final prefs = await SharedPreferences.getInstance();
         int dibujosGuardados = (prefs.getInt('dibujos_guardados') ?? 0) + 1;
@@ -234,15 +234,12 @@ class _JuegoPinturaState extends State<JuegoPintura> {
 
         bool yaCalifico = prefs.getBool('ya_califico') ?? false;
 
-        // Si es el tercer dibujo y aún no ha calificado...
         if (dibujosGuardados == 3 && !yaCalifico) {
           final InAppReview inAppReview = InAppReview.instance;
           if (await inAppReview.isAvailable()) {
-            // Esperamos 2 segundos para no interrumpir el menú de compartir
             await Future.delayed(const Duration(seconds: 2));
-            await inAppReview
-                .requestReview(); // 🌟 Lanza la tarjeta nativa de Google
-            await prefs.setBool('ya_califico', true); // No lo molestamos más
+            await inAppReview.requestReview();
+            await prefs.setBool('ya_califico', true);
           }
         }
       }
@@ -374,12 +371,10 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                       Navigator.pop(context);
                     },
                   ),
-                  // 🚀 ¡AQUÍ ESTÁ DE VUELTA EL BOTÓN DE SELLOS/STICKERS!
                   _buildHerramientaIcono(
                     icono: Icons.star_rounded,
                     color: Colors.orange,
-                    titulo: Traductor.get(
-                        'Stickers'), // Usamos mayúscula por si no está en el diccionario
+                    titulo: Traductor.get('Stickers'),
                     activo: modoHerramienta == 'sellos',
                     onTap: () {
                       _playPop();

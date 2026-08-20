@@ -1,19 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'menu_principal.dart'; // 🚀 VOLVEMOS AL MENÚ PRINCIPAL DIRECTO
+import 'package:shared_preferences/shared_preferences.dart'; // 🚀 Nuevo
+import 'menu_principal.dart';
+import 'idiomas.dart';
+import 'onboarding.dart'; // 🚀 Nuevo
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  Traductor.inicializar();
+
+  // 🚀 Verificamos si es la primera vez
+  final prefs = await SharedPreferences.getInstance();
+  final bool vioOnboarding = prefs.getBool('vio_onboarding') ?? false;
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]).then((_) {
-    runApp(const AlegriaApp());
+    // 🚀 Le pasamos el resultado a la App
+    runApp(AlegriaApp(mostrarOnboarding: !vioOnboarding));
   });
 }
 
 class AlegriaApp extends StatelessWidget {
-  const AlegriaApp({super.key});
+  final bool mostrarOnboarding;
+
+  const AlegriaApp({super.key, required this.mostrarOnboarding});
 
   @override
   Widget build(BuildContext context) {
@@ -21,10 +34,14 @@ class AlegriaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'El Mundo de Alegría',
       theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
+        fontFamily: 'Nunito',
       ),
-      home: const MenuPrincipal(), // 🚀 LA PORTADA VUELVE A SER EL MENÚ
+      // 🚀 Si es la primera vez, muestra el Onboarding. Si no, va al Menú.
+      home: mostrarOnboarding
+          ? const PantallaOnboarding()
+          : const MenuPrincipal(),
     );
   }
 }
