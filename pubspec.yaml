@@ -11,23 +11,21 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  in_app_review: ^2.0.9
+  in_app_review: ^2.0.12
   floodfill_image: ^0.0.8
-  path_provider: ^2.1.3
-  permission_handler: ^11.3.1
-  shared_preferences: ^2.2.3
-  file_picker: ^8.0.3
-  share_plus: ^9.0.0  # 🚀 PAQUETE PARA GUARDAR/COMPARTIR FOTOS
-  audioplayers: ^5.2.1 # 🚀 PAQUETE PARA AUDIO AMBIENTAL Y EFECTOS
-  # 🗑️ SE ELIMINÓ in_app_purchase PORQUE AHORA ES APP DE PAGO ÚNICO
+  path_provider: ^2.1.6
+  permission_handler: ^13.0.1
+  shared_preferences: ^2.5.5
+  file_picker: ^8.0.0  # 👈 Añade esta línea
+  share_plus: ^10.0.0
+  audioplayers: ^6.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_launcher_icons: ^0.11.0 # 🚀 VERSIÓN CORREGIDA (Downgrade)
+  flutter_launcher_icons: ^0.11.0
 
-# 🚀 CONFIGURACIÓN DEL ÍCONO DE LA APP
 flutter_icons:
   android: true
   ios: true
@@ -36,7 +34,6 @@ flutter_icons:
 
 flutter:
   uses-material-design: true
-  
   assets:
     - assets/logo.png
     - assets/vacio.txt

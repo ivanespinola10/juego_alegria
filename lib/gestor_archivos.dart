@@ -1,14 +1,14 @@
+import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:file_picker/file_picker.dart';
 
 class CategoriaDinamica {
   final String nombre;
   final String
-  rutaDirectorio; // 🚀 NUEVO: Necesario para poder eliminar la carpeta
+      rutaDirectorio; // 🚀 NUEVO: Necesario para poder eliminar la carpeta
   final String rutaPortada;
   final List<String> rutasDibujos;
   final Color colorBase;
@@ -104,9 +104,8 @@ class GestorArchivos {
                 (archivo.path.toLowerCase().endsWith('.png') ||
                     archivo.path.toLowerCase().endsWith('.jpg') ||
                     archivo.path.toLowerCase().endsWith('.jpeg'))) {
-              final nombreArchivo = archivo.path
-                  .split(Platform.pathSeparator)
-                  .last;
+              final nombreArchivo =
+                  archivo.path.split(Platform.pathSeparator).last;
               if (nombreArchivo.toLowerCase().startsWith('portada.')) {
                 rutaPortada = archivo.path;
               } else {

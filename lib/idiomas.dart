@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 class Traductor {
   static String _idiomaActual = 'es';
+  static String get idiomaActual => _idiomaActual;
 
   static final Map<String, Map<String, String>> _diccionario = {
     'es': {
@@ -31,6 +32,11 @@ class Traductor {
       'onb_boton': '¡A Pintar! 🎨',
       'compartir_texto':
           '¡Mira mi obra de arte creada en El Mundo de Alegría! 🎨✨ Descárgala en Google Play.',
+      'premium_titulo': '¡Desbloquea el Pase Mágico!',
+      'premium_desc':
+          'Obtén acceso ilimitado a todos los packs exclusivos y apoya el desarrollo de la app.',
+      'premium_boton': '¡Desbloquear Todo!',
+      'pack_bloqueado': 'Pack Premium',
     },
     'en': {
       'titulo_app': 'World of Joy',
@@ -57,6 +63,11 @@ class Traductor {
       'onb_boton': 'Let\'s Paint! 🎨',
       'compartir_texto':
           'Look at my artwork created in World of Joy! 🎨✨ Get it on Google Play.',
+      'premium_titulo': 'Unlock Magic Pass!',
+      'premium_desc':
+          'Get unlimited access to all exclusive packs and support app development.',
+      'premium_boton': 'Unlock Everything!',
+      'pack_bloqueado': 'Premium Pack',
     },
     'pt': {
       'titulo_app': 'O Mundo da Alegria',
@@ -84,6 +95,10 @@ class Traductor {
       'onb_boton': 'Vamos Pintar! 🎨',
       'compartir_texto':
           'Olha a minha obra de arte criada no O Mundo da Alegria! 🎨✨ Baixe no Google Play.',
+      'premium_titulo': 'Desbloquear Passe Mágico!',
+      'premium_desc': 'Tenha acesso ilimitado a todos os pacotes exclusivos.',
+      'premium_boton': 'Desbloquear Tudo!',
+      'pack_bloqueado': 'Pacote Premium',
     },
     'de': {
       'titulo_app': 'Die Welt der Freude',
@@ -112,6 +127,11 @@ class Traductor {
       'onb_boton': 'Lass uns malen! 🎨',
       'compartir_texto':
           'Schau dir mein Kunstwerk aus Die Welt der Freude an! 🎨✨',
+      'premium_titulo': 'Magischen Pass freischalten!',
+      'premium_desc':
+          'Erhalte unbegrenzten Zugriff auf alle exklusiven Pakete.',
+      'premium_boton': 'Alles freischalten!',
+      'pack_bloqueado': 'Premium-Paket',
     },
     'fr': {
       'titulo_app': 'Le Monde de la Joie',
@@ -140,6 +160,10 @@ class Traductor {
       'onb_boton': 'Allons Peindre ! 🎨',
       'compartir_texto':
           'Regarde mon œuvre créée dans Le Monde de la Joie ! 🎨✨',
+      'premium_titulo': 'Débloquer le Pass Magique !',
+      'premium_desc': 'Obtenez un accès illimité à tous les packs exclusifs.',
+      'premium_boton': 'Tout débloquer !',
+      'pack_bloqueado': 'Pack Premium',
     }
   };
 
@@ -150,6 +174,12 @@ class Traductor {
       _idiomaActual = idiomaDispositivo;
     } else {
       _idiomaActual = 'en';
+    }
+  }
+
+  static void setIdioma(String lang) {
+    if (_diccionario.containsKey(lang)) {
+      _idiomaActual = lang;
     }
   }
 

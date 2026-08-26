@@ -47,12 +47,10 @@ class ServicioAudio {
     }
   }
 
-  // 🚀 NUEVA FUNCIÓN: Pausa la música cuando la app se minimiza
   void pausarMusica() {
     _musicPlayer.pause();
   }
 
-  // 🚀 NUEVA FUNCIÓN: Reanuda la música al volver, SOLO si no estaba silenciada
   void reanudarMusica() {
     if (_audioActivo) {
       _musicPlayer.resume();

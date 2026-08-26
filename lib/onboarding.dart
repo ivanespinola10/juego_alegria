@@ -16,7 +16,7 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
 
   void _finalizarOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('vio_onboarding', true); // Marcamos que ya lo vio
+    await prefs.setBool('vio_onboarding', true);
 
     if (!mounted) return;
     Navigator.pushReplacement(
@@ -55,8 +55,6 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
               ),
             ],
           ),
-
-          // Indicadores de puntitos y Botón
           Positioned(
             bottom: 40,
             left: 20,

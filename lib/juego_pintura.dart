@@ -7,7 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/rendering.dart';
 
-// 🚀 IMPORTS PARA ESTRELLAS Y TRADUCTOR
 import 'package:in_app_review/in_app_review.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'idiomas.dart';
@@ -50,16 +49,15 @@ class _JuegoPinturaState extends State<JuegoPintura> {
 
   final GlobalKey _capturaKey = GlobalKey();
 
-  late final ValueNotifier<bool> _blindajeNotifier;
   final ValueNotifier<List<Widget>> _sellosNotifier = ValueNotifier([]);
   final ValueNotifier<List<Trazo>> _trazosNotifier = ValueNotifier([]);
   Trazo? _trazoActual;
 
-  // ESTADOS DE HERRAMIENTA
   String modoHerramienta = 'pintura';
   String categoriaSelloActual = '😀';
   String selloActual = '⭐';
 
+  // 🚀 Colección ampliada de stickers por categoría
   final Map<String, List<String>> coleccionSellos = {
     '😀': [
       '😀',
@@ -75,7 +73,17 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '👽',
       '👻',
       '💩',
-      '🤖'
+      '🤖',
+      '🤠',
+      '😇',
+      '🦄',
+      '🤡',
+      '🤠',
+      '🥳',
+      '😻',
+      '🐶',
+      '🦊',
+      '🦁'
     ],
     '🐶': [
       '🐶',
@@ -93,7 +101,15 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '🐵',
       '🦖',
       '🐢',
-      '🦄'
+      '🦄',
+      '🐤',
+      '🐧',
+      ' koala',
+      '🐙',
+      '🦀',
+      '🐳',
+      '🐬',
+      '🦋'
     ],
     '🍎': [
       '🍎',
@@ -111,7 +127,15 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '🍫',
       '🍬',
       '🍭',
-      '🌮'
+      '🌮',
+      '🍍',
+      '🥑',
+      '🍿',
+      '🍪',
+      '🥞',
+      '🍯',
+      '🍧',
+      '🧃'
     ],
     '⭐': [
       '⭐',
@@ -129,12 +153,19 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '⚽',
       '🏀',
       '🎨',
-      '🎯'
+      '🎯',
+      '⚡',
+      '🔥',
+      '⛄',
+      '🧸',
+      '🚀',
+      '🛸',
+      '⛵',
+      '🏆'
     ],
   };
 
   final List<Color> paletaBase = const [
-    Colors.white,
     Colors.red,
     Colors.blue,
     Colors.yellow,
@@ -143,18 +174,18 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     Colors.purple,
     Colors.pink,
     Colors.brown,
+    Colors.teal,
+    Colors.cyan,
+    Colors.indigo,
+    Colors.grey,
     Colors.black,
   ];
-
-  bool get _necesitaBlindajeMouse =>
-      kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   @override
   void initState() {
     super.initState();
     colorSeleccionado = widget.colorBase;
     selloActual = coleccionSellos['⭐']!.first;
-    _blindajeNotifier = ValueNotifier(_necesitaBlindajeMouse);
     _iniciarMusica();
   }
 
@@ -172,7 +203,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
 
   @override
   void dispose() {
-    _blindajeNotifier.dispose();
     _sellosNotifier.dispose();
     _trazosNotifier.dispose();
     super.dispose();
@@ -207,7 +237,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     }
   }
 
-  // 🚀 FUNCIÓN DE GUARDADO CON SOLICITUD DE RESEÑA
   Future<void> _guardarImagen() async {
     try {
       RenderRepaintBoundary boundary = _capturaKey.currentContext!
@@ -222,11 +251,9 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           await File('${directory.path}/obra_maestra.png').create();
       await imagePath.writeAsBytes(pngBytes);
 
-      // Compartir con texto traducido
       await Share.shareXFiles([XFile(imagePath.path)],
           text: Traductor.get('compartir_texto'));
 
-      // Lógica de calificación en Google Play
       if (!kIsWeb) {
         final prefs = await SharedPreferences.getInstance();
         int dibujosGuardados = (prefs.getInt('dibujos_guardados') ?? 0) + 1;
@@ -296,8 +323,8 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
-          width: 450,
-          padding: const EdgeInsets.all(20),
+          width: 500,
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(30),
@@ -312,7 +339,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
             children: [
               Text(Traductor.get('caja_herramientas'),
                   style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
                       color: Colors.deepPurple)),
               const SizedBox(height: 20),
@@ -321,7 +348,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                 runSpacing: 15,
                 alignment: WrapAlignment.center,
                 children: [
-                  _buildHerramientaIcono(
+                  _buildHerramientaCard(
                     icono: Icons.format_color_fill_rounded,
                     color: Colors.blue,
                     titulo: Traductor.get('pintura'),
@@ -335,7 +362,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                       Navigator.pop(context);
                     },
                   ),
-                  _buildHerramientaIcono(
+                  _buildHerramientaCard(
                     icono: Icons.brush_rounded,
                     color: Colors.purple,
                     titulo: Traductor.get('pincel'),
@@ -346,7 +373,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                       Navigator.pop(context);
                     },
                   ),
-                  _buildHerramientaIcono(
+                  _buildHerramientaCard(
                     icono: Icons.draw_rounded,
                     color: Colors.green,
                     titulo: Traductor.get('marcador'),
@@ -357,7 +384,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                       Navigator.pop(context);
                     },
                   ),
-                  _buildHerramientaIcono(
+                  _buildHerramientaCard(
                     icono: Icons.cleaning_services_rounded,
                     color: Colors.grey.shade600,
                     titulo: Traductor.get('borrador'),
@@ -371,7 +398,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                       Navigator.pop(context);
                     },
                   ),
-                  _buildHerramientaIcono(
+                  _buildHerramientaCard(
                     icono: Icons.star_rounded,
                     color: Colors.orange,
                     titulo: Traductor.get('Stickers'),
@@ -384,7 +411,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 25),
               TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(Traductor.get('cerrar'),
@@ -397,7 +424,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     );
   }
 
-  Widget _buildHerramientaIcono(
+  Widget _buildHerramientaCard(
       {required IconData icono,
       required Color color,
       required String titulo,
@@ -406,10 +433,10 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 100,
-        height: 100,
+        width: 130,
+        height: 110,
         decoration: BoxDecoration(
-          color: activo ? color.withValues(alpha: 0.2) : Colors.grey.shade100,
+          color: activo ? color.withValues(alpha: 0.15) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20),
           border:
               Border.all(color: activo ? color : Colors.transparent, width: 3),
@@ -417,13 +444,13 @@ class _JuegoPinturaState extends State<JuegoPintura> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icono, size: 40, color: color),
-            const SizedBox(height: 5),
+            Icon(icono, size: 36, color: color),
+            const SizedBox(height: 8),
             Text(titulo,
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.grey.shade800,
-                    fontSize: 12)),
+                    fontSize: 13)),
           ],
         ),
       ),
@@ -583,70 +610,110 @@ class _JuegoPinturaState extends State<JuegoPintura> {
             ),
           ),
 
-          // UI INFERIOR
+          // UI INFERIOR UX/UI IDÉNTICA A AI STUDIO
           Positioned(
-            bottom: 10,
+            bottom: 15,
             left: 15,
             right: 15,
             child: SafeArea(
-              child: SizedBox(
-                height: 60,
+              child: Container(
+                height: 70,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 15,
+                        spreadRadius: 2)
+                  ],
+                ),
                 child: Row(
                   children: [
+                    // Botón de Herramienta Activa (Estilo AI Studio)
                     GestureDetector(
                       onTap: _mostrarSubpantallaHerramientas,
                       child: Container(
-                        width: 60,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 10)
-                            ]),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          color: Colors.deepPurple.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Row(
                           children: [
                             Icon(
-                                modoHerramienta == 'sellos'
-                                    ? Icons.star_rounded
-                                    : (modoHerramienta == 'pincel'
-                                        ? Icons.brush_rounded
-                                        : (modoHerramienta == 'marcador'
-                                            ? Icons.draw_rounded
-                                            : Icons.format_color_fill_rounded)),
-                                color: Colors.deepPurple,
-                                size: 26),
+                              modoHerramienta == 'sellos'
+                                  ? Icons.star_rounded
+                                  : (modoHerramienta == 'pincel'
+                                      ? Icons.brush_rounded
+                                      : (modoHerramienta == 'marcador'
+                                          ? Icons.draw_rounded
+                                          : Icons.format_color_fill_rounded)),
+                              color: Colors.deepPurple,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 6),
+                            // 🚀 Texto dinámico corregido para que no se corte
                             Text(
-                                Traductor.get('caja_herramientas')
-                                    .substring(0, 7), // Abreviado para el ícono
-                                style: const TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.deepPurple)),
+                              Traductor.get('pintura'),
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple),
+                            ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (modoHerramienta != 'sellos')
-                      _buildLaboratorioFlotante(),
-                    if (modoHerramienta != 'sellos') const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 10)
-                            ]),
-                        child: modoHerramienta == 'sellos'
-                            ? _buildStickerPalette()
-                            : _buildColorPalette(),
+
+                    // Laboratorio Flotante Compacto
+                    if (modoHerramienta != 'sellos') ...[
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.nightlight_round,
+                                color: Colors.blueGrey, size: 18),
+                            onPressed: _oscurecerTono,
+                            constraints: const BoxConstraints(
+                                minWidth: 30, minHeight: 30),
+                            padding: EdgeInsets.zero,
+                          ),
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: colorSeleccionado,
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: Colors.black87, width: 2),
+                            ),
+                            child: colorSeleccionado == Colors.white
+                                ? const Icon(Icons.cleaning_services_rounded,
+                                    color: Colors.black38, size: 16)
+                                : null,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.wb_sunny_rounded,
+                                color: Colors.amber, size: 18),
+                            onPressed: _aclararTono,
+                            constraints: const BoxConstraints(
+                                minWidth: 30, minHeight: 30),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ],
                       ),
+                      const SizedBox(width: 8),
+                    ],
+
+                    // Paleta o Stickers Extendidos
+                    Expanded(
+                      child: modoHerramienta == 'sellos'
+                          ? _buildStickerPalette()
+                          : _buildColorPalette(),
                     ),
                   ],
                 ),
@@ -675,51 +742,12 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     );
   }
 
-  Widget _buildLaboratorioFlotante() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
-          ]),
-      child: Row(
-        children: [
-          IconButton(
-              icon: const Icon(Icons.nightlight_round,
-                  color: Colors.blueGrey, size: 18),
-              onPressed: _oscurecerTono),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-                color: colorSeleccionado,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.black, width: 2)),
-            child: colorSeleccionado == Colors.white
-                ? const Icon(Icons.cleaning_services_rounded,
-                    color: Colors.black38, size: 16)
-                : null,
-          ),
-          IconButton(
-              icon: const Icon(Icons.wb_sunny_rounded,
-                  color: Colors.amber, size: 18),
-              onPressed: _aclararTono),
-        ],
-      ),
-    );
-  }
-
   Widget _buildStickerPalette() {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Container(
-          height: 25,
-          decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
+        SizedBox(
+          height: 22,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: coleccionSellos.keys.map((catIcon) {
@@ -733,7 +761,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   });
                 },
                 child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Opacity(
                         opacity: isActivo ? 1.0 : 0.4,
                         child: Text(catIcon,
@@ -745,7 +773,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
         Expanded(
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
             itemCount: coleccionSellos[categoriaSelloActual]!.length,
             itemBuilder: (context, index) {
               final sello = coleccionSellos[categoriaSelloActual]![index];
@@ -755,11 +782,11 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   setState(() => selloActual = sello);
                 },
                 child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Center(
                         child: Text(sello,
                             style: TextStyle(
-                                fontSize: selloActual == sello ? 35 : 25)))),
+                                fontSize: selloActual == sello ? 30 : 22)))),
               );
             },
           ),
@@ -771,7 +798,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   Widget _buildColorPalette() {
     return ListView.builder(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
       itemCount: paletaBase.length,
       itemBuilder: (context, index) {
         final c = paletaBase[index];
@@ -779,8 +805,8 @@ class _JuegoPinturaState extends State<JuegoPintura> {
         return GestureDetector(
           onTap: () => _seleccionarOMezclarColor(c),
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 15),
-            width: isSelected ? 40 : 30,
+            margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+            width: isSelected ? 38 : 30,
             decoration: BoxDecoration(
                 color: c,
                 shape: BoxShape.circle,
@@ -790,12 +816,12 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                            color: c.withValues(alpha: 0.5), blurRadius: 10)
+                            color: c.withValues(alpha: 0.5), blurRadius: 8)
                       ]
                     : []),
             child: c == Colors.white
                 ? const Icon(Icons.cleaning_services_rounded,
-                    color: Colors.black54, size: 18)
+                    color: Colors.black54, size: 16)
                 : null,
           ),
         );

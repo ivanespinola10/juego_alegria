@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // 🚀 ¡Esta línea faltaba!
 import 'idiomas.dart';
 import 'gestor_archivos.dart';
 import 'juego_pintura.dart';
@@ -17,6 +18,8 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     with WidgetsBindingObserver {
   List<CategoriaDinamica> _categoriasUsuario = [];
   bool _cargando = true;
+  bool _esVersionesPro =
+      false; // Estado del Paywall (Libro Infinito / Importar)
 
   final List<Map<String, dynamic>> _packsEstaticos = [
     {
@@ -35,7 +38,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     },
     {
       "titulo": "Animalitos",
-      "subtitulo": "Amigos",
+      "subtitulo": "Amigos Felices",
       "icono": Icons.pets_rounded,
       "color": Colors.orange,
       "archivos": [
@@ -59,6 +62,20 @@ class _MenuPrincipalState extends State<MenuPrincipal>
         "assets/Dino/4D.png",
         "assets/Dino/5D.png",
         "assets/Dino/6D.png",
+      ],
+    },
+    {
+      "titulo": "Dino Bebés",
+      "subtitulo": "Pequeños Amigos",
+      "icono": Icons.favorite_rounded,
+      "color": Colors.pink,
+      "archivos": [
+        "assets/DinoBebes/1.png",
+        "assets/DinoBebes/2.png",
+        "assets/DinoBebes/3.png",
+        "assets/DinoBebes/4.png",
+        "assets/DinoBebes/5.png",
+        "assets/DinoBebes/6.png",
       ],
     },
     {
@@ -103,6 +120,14 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     WidgetsBinding.instance.addObserver(this);
     _cargarCarpetas();
     ServicioAudio.instance.iniciarMusica();
+    _verificarEstadoPro();
+  }
+
+  Future<void> _verificarEstadoPro() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _esVersionesPro = prefs.getBool('es_pro') ?? false;
+    });
   }
 
   @override
@@ -170,6 +195,119 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     );
   }
 
+  void _mostrarSelectorIdioma() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Seleccionar Idioma / Language",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildOpcionIdioma('Español', 'es'),
+            _buildOpcionIdioma('English', 'en'),
+            _buildOpcionIdioma('Português', 'pt'),
+            _buildOpcionIdioma('Deutsch', 'de'),
+            _buildOpcionIdioma('Français', 'fr'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOpcionIdioma(String nombre, String codigo) {
+    return ListTile(
+      title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+      trailing: Traductor.idiomaActual == codigo
+          ? const Icon(Icons.check, color: Colors.deepPurple)
+          : null,
+      onTap: () {
+        ServicioAudio.instance.playPop();
+        Traductor.setIdioma(codigo);
+        Navigator.pop(context);
+        setState(() {});
+      },
+    );
+  }
+
+  void _mostrarPaywall() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        child: Container(
+          padding: const EdgeInsets.all(30),
+          width: 400,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.workspace_premium_rounded,
+                  size: 70, color: Colors.amber),
+              const SizedBox(height: 15),
+              Text(
+                Traductor.get('premium_titulo'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                Traductor.get('premium_desc'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 14, color: Colors.grey, height: 1.4),
+              ),
+              const SizedBox(height: 25),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25)),
+                  elevation: 5,
+                ),
+                onPressed: () async {
+                  ServicioAudio.instance.playPop();
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('es_pro', true);
+                  setState(() {
+                    _esVersionesPro = true;
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text(
+                            "🎉 ¡Libro Infinito activado! Ya puedes importar tus dibujos.")),
+                  );
+                },
+                child: Text(
+                  Traductor.get('premium_boton'),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(Traductor.get('cancelar'),
+                    style: const TextStyle(color: Colors.grey)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -183,6 +321,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
         ),
         child: SafeArea(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding:
@@ -191,11 +330,18 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.auto_awesome_rounded,
-                            color: Colors.amber, size: 28),
-                        SizedBox(width: 8),
-                        Text(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.auto_awesome_rounded,
+                              color: Colors.amber, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
                           "El Mundo de Alegría",
                           style: TextStyle(
                               fontSize: 24,
@@ -206,59 +352,122 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                     ),
                     Row(
                       children: [
-                        // 🚀 NUEVO BOTÓN IMPORTAR EN EL MENÚ PRINCIPAL
-                        if (!kIsWeb)
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.indigo,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20)),
-                              elevation: 3,
-                            ),
-                            icon: const Icon(Icons.add_photo_alternate_rounded),
-                            label: const Text("Importar Dibujos",
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            onPressed: () async {
-                              ServicioAudio.instance.playPop();
-                              await GestorArchivos.importarArchivosDirectos();
-                              _cargarCarpetas(); // 🚀 MAGIA: Se actualiza solo al terminar
-                            },
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _esVersionesPro
+                                ? Colors.indigo
+                                : Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                            elevation: 3,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
                           ),
-                        const SizedBox(width: 15),
+                          icon: Icon(
+                              _esVersionesPro
+                                  ? Icons.add_photo_alternate_rounded
+                                  : Icons.lock_rounded,
+                              size: 20),
+                          label: Text(Traductor.get('importar_dibujos'),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () async {
+                            ServicioAudio.instance.playPop();
+                            if (!_esVersionesPro) {
+                              _mostrarPaywall();
+                              return;
+                            }
+                            if (!kIsWeb) {
+                              await GestorArchivos.importarArchivosDirectos();
+                              _cargarCarpetas();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        "La importación de dibujos está disponible en dispositivos móviles.")),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () {
+                            ServicioAudio.instance.playPop();
+                            _mostrarSelectorIdioma();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 5)
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.language_rounded,
+                                    size: 18, color: Colors.deepPurple),
+                                const SizedBox(width: 6),
+                                Text(Traductor.idiomaActual.toUpperCase(),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.deepPurple)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         ValueListenableBuilder<bool>(
                           valueListenable:
                               ServicioAudio.instance.audioActivoNotifier,
                           builder: (context, audioActivo, _) {
-                            return IconButton(
-                              icon: Icon(
-                                audioActivo
-                                    ? Icons.volume_up_rounded
-                                    : Icons.volume_off_rounded,
-                                color: audioActivo
-                                    ? Colors.deepPurple
-                                    : Colors.grey,
-                                size: 28,
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 5)
+                                ],
                               ),
-                              onPressed: () {
-                                ServicioAudio.instance.playPop();
-                                ServicioAudio.instance.toggleAudio();
-                              },
+                              child: IconButton(
+                                icon: Icon(
+                                  audioActivo
+                                      ? Icons.volume_up_rounded
+                                      : Icons.volume_off_rounded,
+                                  color: audioActivo
+                                      ? Colors.deepPurple
+                                      : Colors.grey,
+                                  size: 24,
+                                ),
+                                onPressed: () {
+                                  ServicioAudio.instance.playPop();
+                                  ServicioAudio.instance.toggleAudio();
+                                },
+                              ),
                             );
                           },
                         ),
-                        if (!kIsWeb)
-                          IconButton(
-                            icon: const Icon(Icons.refresh_rounded,
-                                color: Colors.deepPurple, size: 28),
-                            onPressed: () {
-                              ServicioAudio.instance.playPop();
-                              _cargarCarpetas();
-                            },
-                          ),
                       ],
                     ),
                   ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 5),
+                child: Text(
+                  "Pintura y Dibujo",
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87),
                 ),
               ),
               Expanded(
@@ -268,7 +477,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 5),
+                              horizontal: 20, vertical: 10),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
