@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'menu_principal.dart';
 import 'idiomas.dart';
 
@@ -13,6 +14,12 @@ class PantallaOnboarding extends StatefulWidget {
 class _PantallaOnboardingState extends State<PantallaOnboarding> {
   final PageController _controlador = PageController();
   int _paginaActual = 0;
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
 
   void _finalizarOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
@@ -84,9 +91,12 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 30, vertical: 15),
+                      horizontal: 30,
+                      vertical: 15,
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                     elevation: 5,
                   ),
                   onPressed: () {
@@ -94,14 +104,17 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
                       _finalizarOnboarding();
                     } else {
                       _controlador.nextPage(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeInOut);
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                      );
                     }
                   },
                   child: Text(
                     _paginaActual == 2 ? Traductor.get('onb_boton') : "➡️",
                     style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -112,11 +125,12 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
     );
   }
 
-  Widget _construirPagina(
-      {required IconData icono,
-      required Color color,
-      required String titulo,
-      required String descripcion}) {
+  Widget _construirPagina({
+    required IconData icono,
+    required Color color,
+    required String titulo,
+    required String descripcion,
+  }) {
     return Padding(
       padding: const EdgeInsets.all(40.0),
       child: Column(
@@ -135,16 +149,20 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
             titulo,
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800),
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade800,
+            ),
           ),
           const SizedBox(height: 20),
           Text(
             descripcion,
             textAlign: TextAlign.center,
-            style:
-                const TextStyle(fontSize: 18, color: Colors.grey, height: 1.5),
+            style: const TextStyle(
+              fontSize: 18,
+              color: Colors.grey,
+              height: 1.5,
+            ),
           ),
         ],
       ),

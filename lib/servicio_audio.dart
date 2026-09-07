@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Servicio singleton para gestionar el audio ambiental y los efectos de sonido
 class ServicioAudio {
@@ -9,9 +10,15 @@ class ServicioAudio {
   final AudioPlayer _musicPlayer = AudioPlayer();
   final AudioPlayer _sfxPlayer = AudioPlayer();
 
-  bool _audioActivo = true;
+  bool _audioActivo = false;
   bool get audioActivo => _audioActivo;
-  final ValueNotifier<bool> audioActivoNotifier = ValueNotifier<bool>(true);
+  final ValueNotifier<bool> audioActivoNotifier = ValueNotifier<bool>(false);
+
+  Future<void> cargarPreferencias() async {
+    final prefs = await SharedPreferences.getInstance();
+    _audioActivo = prefs.getBool('audio_activo') ?? false;
+    audioActivoNotifier.value = _audioActivo;
+  }
 
   bool _musicaIniciada = false;
 
@@ -26,6 +33,7 @@ class ServicioAudio {
         await _musicPlayer.resume();
       }
     } catch (e) {
+      _musicaIniciada = false;
       debugPrint('Audio bg_music no disponible: $e');
     }
   }
@@ -37,13 +45,21 @@ class ServicioAudio {
     });
   }
 
-  void toggleAudio() {
+  Future<void> toggleAudio() async {
     _audioActivo = !_audioActivo;
     audioActivoNotifier.value = _audioActivo;
-    if (_audioActivo) {
-      _musicPlayer.resume();
-    } else {
-      _musicPlayer.pause();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('audio_activo', _audioActivo);
+      if (_audioActivo) {
+        if (!_musicaIniciada) await iniciarMusica();
+        await _musicPlayer.resume();
+      } else {
+        await _musicPlayer.pause();
+        await _sfxPlayer.stop();
+      }
+    } catch (e) {
+      debugPrint('No se pudo cambiar el audio: $e');
     }
   }
 

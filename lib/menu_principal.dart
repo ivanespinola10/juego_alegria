@@ -1,11 +1,15 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // 🚀 ¡Esta línea faltaba!
+
 import 'idiomas.dart';
 import 'gestor_archivos.dart';
 import 'juego_pintura.dart';
 import 'servicio_audio.dart';
+import 'zona_adultos.dart';
+import 'textos_adultos.dart';
 
 class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key});
@@ -18,6 +22,52 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     with WidgetsBindingObserver {
   List<CategoriaDinamica> _categoriasUsuario = [];
   bool _cargando = true;
+  bool _importando = false;
+
+  Future<void> _importarLamina() async {
+    if (_importando || kIsWeb) return;
+    setState(() => _importando = true);
+    try {
+      if (!await solicitarAdulto(context) || !mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      // Existing access is preserved; it is not proof of a paid transaction.
+      final pro = prefs.getBool('es_pro') ?? false;
+      final pruebaUsada =
+          (prefs.getBool('importacion_prueba_usada') ?? false) ||
+          _categoriasUsuario.isNotEmpty;
+      if (!pro && pruebaUsada) {
+        _mostrarPaywall();
+        return;
+      }
+      final resultado = await GestorArchivos.importarArchivosDirectos(
+        multiple: pro,
+      );
+      if (!pro && resultado.importados > 0) {
+        await prefs.setBool('importacion_prueba_usada', true);
+      }
+      if (!mounted) return;
+      if (resultado.importados + resultado.omitidos > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${textoAdulto('importDone')}: ${resultado.importados}. '
+              '${textoAdulto('skipped')}: ${resultado.omitidos}.',
+            ),
+          ),
+        );
+      }
+      await _cargarCarpetas();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(textoAdulto('importError'))));
+      }
+    } finally {
+      if (mounted) setState(() => _importando = false);
+    }
+  }
+
   bool _esVersionesPro =
       false; // Estado del Paywall (Libro Infinito / Importar)
 
@@ -70,12 +120,12 @@ class _MenuPrincipalState extends State<MenuPrincipal>
       "icono": Icons.favorite_rounded,
       "color": Colors.pink,
       "archivos": [
-        "assets/DinoBebes/1.png",
-        "assets/DinoBebes/2.png",
-        "assets/DinoBebes/3.png",
-        "assets/DinoBebes/4.png",
-        "assets/DinoBebes/5.png",
-        "assets/DinoBebes/6.png",
+        "assets/Dinobebe/BD1.png",
+        "assets/Dinobebe/BD2.png",
+        "assets/Dinobebe/BD3.png",
+        "assets/Dinobebe/BD4.png",
+        "assets/Dinobebe/BD5.png",
+        "assets/Dinobebe/BD11.png",
       ],
     },
     {
@@ -125,6 +175,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
 
   Future<void> _verificarEstadoPro() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _esVersionesPro = prefs.getBool('es_pro') ?? false;
     });
@@ -155,21 +206,25 @@ class _MenuPrincipalState extends State<MenuPrincipal>
       return;
     }
     final carpetas = await GestorArchivos.escanearCarpetasUsuario();
+    if (!mounted) return;
     setState(() {
       _categoriasUsuario = carpetas;
       _cargando = false;
     });
   }
 
-  void _eliminarCategoria(CategoriaDinamica cat) {
+  Future<void> _eliminarCategoria(CategoriaDinamica cat) async {
+    if (!await solicitarAdulto(context) || !mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           Traductor.get('borrar_pack'),
-          style:
-              const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: Text(Traductor.get('borrar_aviso')),
         actions: [
@@ -179,13 +234,23 @@ class _MenuPrincipalState extends State<MenuPrincipal>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: () {
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
               Navigator.pop(context);
-              final directorio = Directory(cat.rutaDirectorio);
-              if (directorio.existsSync()) {
-                directorio.deleteSync(recursive: true);
-                _cargarCarpetas();
+              try {
+                final directorio = Directory(cat.rutaDirectorio);
+                if (await directorio.exists()) {
+                  await directorio.delete(recursive: true);
+                }
+                if (mounted) await _cargarCarpetas();
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(content: Text(textoAdulto('deleteError'))),
+                  );
+                }
               }
             },
             child: Text(Traductor.get('si_borrar')),
@@ -200,8 +265,10 @@ class _MenuPrincipalState extends State<MenuPrincipal>
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Seleccionar Idioma / Language",
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Seleccionar Idioma / Language",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -222,9 +289,10 @@ class _MenuPrincipalState extends State<MenuPrincipal>
       trailing: Traductor.idiomaActual == codigo
           ? const Icon(Icons.check, color: Colors.deepPurple)
           : null,
-      onTap: () {
+      onTap: () async {
         ServicioAudio.instance.playPop();
-        Traductor.setIdioma(codigo);
+        await Traductor.setIdioma(codigo);
+        if (!context.mounted || !mounted) return;
         Navigator.pop(context);
         setState(() {});
       },
@@ -243,65 +311,69 @@ class _MenuPrincipalState extends State<MenuPrincipal>
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.workspace_premium_rounded,
-                  size: 70, color: Colors.amber),
-              const SizedBox(height: 15),
-              Text(
-                Traductor.get('premium_titulo'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 70,
+                  color: Colors.amber,
+                ),
+                const SizedBox(height: 15),
+                Text(
+                  textoAdulto('infinite'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                Traductor.get('premium_desc'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 14, color: Colors.grey, height: 1.4),
-              ),
-              const SizedBox(height: 25),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25)),
-                  elevation: 5,
+                    color: Colors.deepPurple,
+                  ),
                 ),
-                onPressed: () async {
-                  ServicioAudio.instance.playPop();
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('es_pro', true);
-                  setState(() {
-                    _esVersionesPro = true;
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            "🎉 ¡Libro Infinito activado! Ya puedes importar tus dibujos.")),
-                  );
-                },
-                child: Text(
-                  Traductor.get('premium_boton'),
+                const SizedBox(height: 10),
+                Text(
+                  '${textoAdulto('offer')}\n\n${textoAdulto('trial')}',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                    fontSize: 14,
+                    color: Colors.grey,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(Traductor.get('cancelar'),
-                    style: const TextStyle(color: Colors.grey)),
-              ),
-            ],
+                const SizedBox(height: 25),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 40,
+                      vertical: 15,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    elevation: 5,
+                  ),
+                  // Never grant paid access until store billing is configured.
+                  onPressed: null,
+                  child: Text(
+                    textoAdulto('coming'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    Traductor.get('cancelar'),
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -324,8 +396,10 @@ class _MenuPrincipalState extends State<MenuPrincipal>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10.0,
+                  horizontal: 20,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -337,16 +411,20 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                             color: Colors.amber.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.auto_awesome_rounded,
-                              color: Colors.amber, size: 24),
+                          child: const Icon(
+                            Icons.auto_awesome_rounded,
+                            color: Colors.amber,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         const Text(
                           "El Mundo de Alegría",
                           style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.deepPurple),
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                          ),
                         ),
                       ],
                     ),
@@ -359,36 +437,27 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                                 : Colors.deepPurple,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20)),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                             elevation: 3,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                           ),
                           icon: Icon(
-                              _esVersionesPro
-                                  ? Icons.add_photo_alternate_rounded
-                                  : Icons.lock_rounded,
-                              size: 20),
-                          label: Text(Traductor.get('importar_dibujos'),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          onPressed: () async {
-                            ServicioAudio.instance.playPop();
-                            if (!_esVersionesPro) {
-                              _mostrarPaywall();
-                              return;
-                            }
-                            if (!kIsWeb) {
-                              await GestorArchivos.importarArchivosDirectos();
-                              _cargarCarpetas();
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        "La importación de dibujos está disponible en dispositivos móviles.")),
-                              );
-                            }
-                          },
+                            _esVersionesPro
+                                ? Icons.add_photo_alternate_rounded
+                                : Icons.lock_rounded,
+                            size: 20,
+                          ),
+                          label: Text(
+                            textoAdulto('import'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: _importando || _cargando || kIsWeb
+                              ? null
+                              : _importarLamina,
                         ),
                         const SizedBox(width: 12),
                         GestureDetector(
@@ -398,25 +467,34 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(15),
                               boxShadow: [
                                 BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 5)
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 5,
+                                ),
                               ],
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.language_rounded,
-                                    size: 18, color: Colors.deepPurple),
+                                const Icon(
+                                  Icons.language_rounded,
+                                  size: 18,
+                                  color: Colors.deepPurple,
+                                ),
                                 const SizedBox(width: 6),
-                                Text(Traductor.idiomaActual.toUpperCase(),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.deepPurple)),
+                                Text(
+                                  Traductor.idiomaActual.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.deepPurple,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -432,9 +510,9 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.05),
-                                      blurRadius: 5)
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 5,
+                                  ),
                                 ],
                               ),
                               child: IconButton(
@@ -465,9 +543,10 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                 child: Text(
                   "Pintura y Dibujo",
                   style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
               Expanded(
@@ -477,14 +556,18 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 10),
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              ..._packsEstaticos.map((pack) =>
-                                  _buildTarjetaEstatica(context, pack)),
+                              ..._packsEstaticos.map(
+                                (pack) => _buildTarjetaEstatica(context, pack),
+                              ),
                               ..._categoriasUsuario.map(
-                                  (cat) => _buildTarjetaDinamica(context, cat)),
+                                (cat) => _buildTarjetaDinamica(context, cat),
+                              ),
                             ],
                           ),
                         ),
@@ -498,10 +581,13 @@ class _MenuPrincipalState extends State<MenuPrincipal>
   }
 
   Widget _buildTarjetaEstatica(
-      BuildContext context, Map<String, dynamic> pack) {
+    BuildContext context,
+    Map<String, dynamic> pack,
+  ) {
     final Color colorMascota = pack["color"];
-    final IconData iconoData =
-        pack["icono"] is IconData ? pack["icono"] : Icons.menu_book_rounded;
+    final IconData iconoData = pack["icono"] is IconData
+        ? pack["icono"]
+        : Icons.menu_book_rounded;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -529,12 +615,15 @@ class _MenuPrincipalState extends State<MenuPrincipal>
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
-                color: colorMascota.withValues(alpha: 0.3), width: 3),
+              color: colorMascota.withValues(alpha: 0.3),
+              width: 3,
+            ),
             boxShadow: [
               BoxShadow(
-                  color: colorMascota.withValues(alpha: 0.15),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8))
+                color: colorMascota.withValues(alpha: 0.15),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
             ],
           ),
           child: Column(
@@ -543,17 +632,19 @@ class _MenuPrincipalState extends State<MenuPrincipal>
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                    color: colorMascota.withValues(alpha: 0.1),
-                    shape: BoxShape.circle),
+                  color: colorMascota.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(iconoData, size: 60, color: colorMascota),
               ),
               const SizedBox(height: 20),
               Text(
                 pack["titulo"],
                 style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: colorMascota),
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: colorMascota,
+                ),
               ),
               const SizedBox(height: 5),
               Text(
@@ -594,12 +685,15 @@ class _MenuPrincipalState extends State<MenuPrincipal>
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
-                color: cat.colorBase.withValues(alpha: 0.3), width: 3),
+              color: cat.colorBase.withValues(alpha: 0.3),
+              width: 3,
+            ),
             boxShadow: [
               BoxShadow(
-                  color: cat.colorBase.withValues(alpha: 0.15),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8))
+                color: cat.colorBase.withValues(alpha: 0.15),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
             ],
           ),
           child: Stack(
@@ -612,24 +706,31 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                        color: cat.colorBase.withValues(alpha: 0.1),
-                        shape: BoxShape.circle),
+                      color: cat.colorBase.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
                     child: ClipOval(
                       child: cat.rutaPortada.isNotEmpty
-                          ? Image.file(File(cat.rutaPortada),
+                          ? Image.file(
+                              File(cat.rutaPortada),
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
-                                  Icon(Icons.child_care_rounded,
-                                      size: 50, color: cat.colorBase))
+                                  Icon(
+                                    Icons.child_care_rounded,
+                                    size: 50,
+                                    color: cat.colorBase,
+                                  ),
+                            )
                           : Center(
                               child: Text(
                                 cat.nombre.isNotEmpty
                                     ? cat.nombre.substring(0, 1).toUpperCase()
                                     : "?",
                                 style: TextStyle(
-                                    fontSize: 50,
-                                    fontWeight: FontWeight.bold,
-                                    color: cat.colorBase),
+                                  fontSize: 50,
+                                  fontWeight: FontWeight.bold,
+                                  color: cat.colorBase,
+                                ),
                               ),
                             ),
                     ),
@@ -638,9 +739,10 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                   Text(
                     cat.nombre,
                     style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: cat.colorBase),
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: cat.colorBase,
+                    ),
                   ),
                   const SizedBox(height: 5),
                   Text(
@@ -653,8 +755,11 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                 top: 10,
                 right: 10,
                 child: IconButton(
-                  icon: const Icon(Icons.delete_rounded,
-                      color: Colors.red, size: 24),
+                  icon: const Icon(
+                    Icons.delete_rounded,
+                    color: Colors.red,
+                    size: 24,
+                  ),
                   onPressed: () => _eliminarCategoria(cat),
                 ),
               ),
