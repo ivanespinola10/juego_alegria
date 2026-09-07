@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:floodfill_image/floodfill_image.dart';
@@ -7,21 +8,22 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/rendering.dart';
 
-import 'package:in_app_review/in_app_review.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'idiomas.dart';
 import 'servicio_audio.dart';
+import 'zona_adultos.dart';
+import 'textos_adultos.dart';
 
 class Trazo {
   final List<Offset> puntos;
   final Color color;
   final double grosor;
   final bool esMarcador;
-  Trazo(
-      {required this.puntos,
-      required this.color,
-      required this.grosor,
-      this.esMarcador = false});
+  Trazo({
+    required this.puntos,
+    required this.color,
+    required this.grosor,
+    this.esMarcador = false,
+  });
 }
 
 class JuegoPintura extends StatefulWidget {
@@ -52,6 +54,50 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   final ValueNotifier<List<Widget>> _sellosNotifier = ValueNotifier([]);
   final ValueNotifier<List<Trazo>> _trazosNotifier = ValueNotifier([]);
   Trazo? _trazoActual;
+  bool _hayCambios = false;
+  bool _confirmando = false;
+  bool _compartiendo = false;
+
+  void _marcarCambio() {
+    if (!_hayCambios) setState(() => _hayCambios = true);
+  }
+
+  Future<bool> _confirmarDescarte() async {
+    if (!_hayCambios) return true;
+    if (_confirmando || _compartiendo) return false;
+    _confirmando = true;
+    try {
+      return await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              scrollable: true,
+              title: Text(textoAdulto('discard')),
+              content: Text(textoAdulto('discardDetail')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text(textoAdulto('cancel')),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: Text(textoAdulto('yesDiscard')),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    } finally {
+      _confirmando = false;
+    }
+  }
+
+  Future<void> _salir() async {
+    if (_compartiendo || !await _confirmarDescarte() || !mounted) return;
+    setState(() => _hayCambios = false);
+    // Let PopScope receive canPop=true before popping the route.
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) Navigator.pop(context);
+  }
 
   String modoHerramienta = 'pintura';
   String categoriaSelloActual = '😀';
@@ -83,7 +129,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '😻',
       '🐶',
       '🦊',
-      '🦁'
+      '🦁',
     ],
     '🐶': [
       '🐶',
@@ -109,7 +155,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '🦀',
       '🐳',
       '🐬',
-      '🦋'
+      '🦋',
     ],
     '🍎': [
       '🍎',
@@ -135,7 +181,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '🥞',
       '🍯',
       '🍧',
-      '🧃'
+      '🧃',
     ],
     '⭐': [
       '⭐',
@@ -161,7 +207,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '🚀',
       '🛸',
       '⛵',
-      '🏆'
+      '🏆',
     ],
   };
 
@@ -208,20 +254,25 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     super.dispose();
   }
 
-  void _cambiarDibujo(int paso) {
+  Future<void> _cambiarDibujo(int paso) async {
+    if (_compartiendo || !await _confirmarDescarte() || !mounted) return;
     setState(() {
       indiceActual = (indiceActual + paso) % widget.dibujos.length;
-      if (indiceActual < 0) indiceActual = widget.dibujos.length - 1;
-      _limpiarLienzoCompleto();
+      _reiniciarLienzo();
     });
   }
 
-  void _limpiarLienzoCompleto() {
-    setState(() {
-      lienzoKey = UniqueKey();
-      _sellosNotifier.value = [];
-      _trazosNotifier.value = [];
-    });
+  Future<void> _limpiarLienzoCompleto() async {
+    if (_compartiendo || !await _confirmarDescarte() || !mounted) return;
+    setState(_reiniciarLienzo);
+  }
+
+  void _reiniciarLienzo() {
+    lienzoKey = UniqueKey();
+    _sellosNotifier.value = [];
+    _trazosNotifier.value = [];
+    _trazoActual = null;
+    _hayCambios = false;
   }
 
   void _deshacerUltimaAccion() {
@@ -238,45 +289,54 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   }
 
   Future<void> _guardarImagen() async {
+    if (_compartiendo || kIsWeb) return;
+    setState(() => _compartiendo = true);
+    ui.Image? image;
     try {
-      RenderRepaintBoundary boundary = _capturaKey.currentContext!
-          .findRenderObject() as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      if (!await solicitarAdulto(context) || !mounted) return;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      RenderRepaintBoundary boundary =
+          _capturaKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+      final lado = boundary.size.longestSide;
+      image = await boundary.toImage(pixelRatio: (2048 / lado).clamp(0.1, 2.0));
+      ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       Uint8List pngBytes = byteData!.buffer.asUint8List();
 
       final directory = await getTemporaryDirectory();
-      final imagePath =
-          await File('${directory.path}/obra_maestra.png').create();
+      final imagePath = await File(
+        '${directory.path}/obra_${DateTime.now().microsecondsSinceEpoch}.png',
+      ).create();
       await imagePath.writeAsBytes(pngBytes);
 
-      await Share.shareXFiles([XFile(imagePath.path)],
-          text: Traductor.get('compartir_texto'));
-
-      if (!kIsWeb) {
-        final prefs = await SharedPreferences.getInstance();
-        int dibujosGuardados = (prefs.getInt('dibujos_guardados') ?? 0) + 1;
-        await prefs.setInt('dibujos_guardados', dibujosGuardados);
-
-        bool yaCalifico = prefs.getBool('ya_califico') ?? false;
-
-        if (dibujosGuardados == 3 && !yaCalifico) {
-          final InAppReview inAppReview = InAppReview.instance;
-          if (await inAppReview.isAvailable()) {
-            await Future.delayed(const Duration(seconds: 2));
-            await inAppReview.requestReview();
-            await prefs.setBool('ya_califico', true);
-          }
-        }
-      }
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox;
+      await Share.shareXFiles(
+        [XFile(imagePath.path)],
+        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+        text: Traductor.get('compartir_texto'),
+      );
     } catch (e) {
       debugPrint("Error al guardar la imagen: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(textoAdulto('shareError'))));
+      }
+    } finally {
+      image?.dispose();
+      if (mounted) setState(() => _compartiendo = false);
     }
   }
 
   void _seleccionarOMezclarColor(Color nuevoColor) {
     _playPop();
+    setState(() => colorSeleccionado = nuevoColor);
+  }
+
+  void _mezclarColor(Color nuevoColor) {
     setState(() {
       if (nuevoColor == Colors.white ||
           colorSeleccionado == Colors.white ||
@@ -290,24 +350,37 @@ class _JuegoPinturaState extends State<JuegoPintura> {
 
   void _aclararTono() {
     _playPop();
-    setState(() =>
-        colorSeleccionado = Color.lerp(colorSeleccionado, Colors.white, 0.25)!);
+    setState(
+      () => colorSeleccionado = Color.lerp(
+        colorSeleccionado,
+        Colors.white,
+        0.25,
+      )!,
+    );
   }
 
   void _oscurecerTono() {
     _playPop();
-    setState(() =>
-        colorSeleccionado = Color.lerp(colorSeleccionado, Colors.black, 0.25)!);
+    setState(
+      () => colorSeleccionado = Color.lerp(
+        colorSeleccionado,
+        Colors.black,
+        0.25,
+      )!,
+    );
   }
 
   void _pegarSello(TapUpDetails details) {
     if (modoHerramienta != 'sellos') return;
+    _marcarCambio();
     _playPop();
     final nuevoSello = Positioned(
       left: details.localPosition.dx - 25,
       top: details.localPosition.dy - 25,
       child: TweenAnimationBuilder(
-        duration: const Duration(milliseconds: 300),
+        duration: MediaQuery.of(context).disableAnimations
+            ? Duration.zero
+            : const Duration(milliseconds: 150),
         tween: Tween<double>(begin: 0, end: 1),
         builder: (context, double val, child) =>
             Transform.scale(scale: val, child: child),
@@ -326,22 +399,27 @@ class _JuegoPinturaState extends State<JuegoPintura> {
           width: 500,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    spreadRadius: 5)
-              ]),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(Traductor.get('caja_herramientas'),
-                  style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple)),
+              Text(
+                Traductor.get('caja_herramientas'),
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple,
+                ),
+              ),
               const SizedBox(height: 20),
               Wrap(
                 spacing: 15,
@@ -413,10 +491,12 @@ class _JuegoPinturaState extends State<JuegoPintura> {
               ),
               const SizedBox(height: 25),
               TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(Traductor.get('cerrar'),
-                      style:
-                          const TextStyle(fontSize: 16, color: Colors.grey))),
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  Traductor.get('cerrar'),
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ),
             ],
           ),
         ),
@@ -424,12 +504,13 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     );
   }
 
-  Widget _buildHerramientaCard(
-      {required IconData icono,
-      required Color color,
-      required String titulo,
-      required bool activo,
-      required VoidCallback onTap}) {
+  Widget _buildHerramientaCard({
+    required IconData icono,
+    required Color color,
+    required String titulo,
+    required bool activo,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -438,19 +519,24 @@ class _JuegoPinturaState extends State<JuegoPintura> {
         decoration: BoxDecoration(
           color: activo ? color.withValues(alpha: 0.15) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20),
-          border:
-              Border.all(color: activo ? color : Colors.transparent, width: 3),
+          border: Border.all(
+            color: activo ? color : Colors.transparent,
+            width: 3,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icono, size: 36, color: color),
             const SizedBox(height: 8),
-            Text(titulo,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade800,
-                    fontSize: 13)),
+            Text(
+              titulo,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+                fontSize: 13,
+              ),
+            ),
           ],
         ),
       ),
@@ -462,8 +548,8 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     final String rutaDibujo = widget.dibujos[indiceActual];
     final ImageProvider proveedorImagen =
         (rutaDibujo.startsWith('assets/') || kIsWeb)
-            ? AssetImage(rutaDibujo)
-            : FileImage(File(rutaDibujo)) as ImageProvider;
+        ? AssetImage(rutaDibujo)
+        : FileImage(File(rutaDibujo)) as ImageProvider;
 
     final lienzoBase = FloodFillImage(
       key: lienzoKey,
@@ -473,272 +559,356 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       tolerance: 8,
     );
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 4.0,
-              panEnabled:
-                  modoHerramienta == 'pintura' || modoHerramienta == 'sellos',
-              scaleEnabled: true,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return Center(
-                    child: SizedBox(
-                      height: constraints.maxHeight,
-                      child: RepaintBoundary(
-                        key: _capturaKey,
-                        child: AspectRatio(
-                          aspectRatio: 4 / 3,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              IgnorePointer(
-                                ignoring: modoHerramienta != 'pintura',
-                                child: RepaintBoundary(child: lienzoBase),
-                              ),
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  ignoring: modoHerramienta != 'pincel' &&
-                                      modoHerramienta != 'marcador',
-                                  child: GestureDetector(
-                                    onPanStart: (details) {
-                                      _trazoActual = Trazo(
-                                        puntos: [details.localPosition],
-                                        color: colorSeleccionado,
-                                        grosor: modoHerramienta == 'marcador'
-                                            ? 25.0
-                                            : 8.0,
-                                        esMarcador:
-                                            modoHerramienta == 'marcador',
-                                      );
-                                      _trazosNotifier.value =
-                                          List.from(_trazosNotifier.value)
-                                            ..add(_trazoActual!);
-                                    },
-                                    onPanUpdate: (details) {
-                                      if (_trazoActual != null) {
-                                        _trazoActual!.puntos
-                                            .add(details.localPosition);
-                                        _trazosNotifier.value =
-                                            List.from(_trazosNotifier.value);
-                                      }
-                                    },
-                                    onPanEnd: (details) => _trazoActual = null,
-                                    child: ValueListenableBuilder<List<Trazo>>(
-                                      valueListenable: _trazosNotifier,
-                                      builder: (context, trazos, _) =>
-                                          CustomPaint(
-                                              painter: DibujoPainter(trazos)),
+    return PopScope(
+      canPop: !_hayCambios && !_compartiendo,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _salir();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade100,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 4.0,
+                panEnabled:
+                    modoHerramienta == 'pintura' || modoHerramienta == 'sellos',
+                scaleEnabled: true,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Center(
+                      child: SizedBox(
+                        height: constraints.maxHeight,
+                        child: RepaintBoundary(
+                          key: _capturaKey,
+                          child: AspectRatio(
+                            aspectRatio: 4 / 3,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                IgnorePointer(
+                                  ignoring: modoHerramienta != 'pintura',
+                                  child: Listener(
+                                    // Conservative: a bucket tap may alter its internal image.
+                                    onPointerDown: (_) => _marcarCambio(),
+                                    child: RepaintBoundary(child: lienzoBase),
+                                  ),
+                                ),
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    ignoring:
+                                        modoHerramienta != 'pincel' &&
+                                        modoHerramienta != 'marcador',
+                                    child: GestureDetector(
+                                      onPanStart: (details) {
+                                        _marcarCambio();
+                                        _trazoActual = Trazo(
+                                          puntos: [details.localPosition],
+                                          color: colorSeleccionado,
+                                          grosor: modoHerramienta == 'marcador'
+                                              ? 25.0
+                                              : 8.0,
+                                          esMarcador:
+                                              modoHerramienta == 'marcador',
+                                        );
+                                        _trazosNotifier.value = List.from(
+                                          _trazosNotifier.value,
+                                        )..add(_trazoActual!);
+                                      },
+                                      onPanUpdate: (details) {
+                                        if (_trazoActual != null) {
+                                          _trazoActual!.puntos.add(
+                                            details.localPosition,
+                                          );
+                                          _trazosNotifier.value = List.from(
+                                            _trazosNotifier.value,
+                                          );
+                                        }
+                                      },
+                                      onPanEnd: (details) =>
+                                          _trazoActual = null,
+                                      onPanCancel: () => _trazoActual = null,
+                                      child:
+                                          ValueListenableBuilder<List<Trazo>>(
+                                            valueListenable: _trazosNotifier,
+                                            builder: (context, trazos, _) =>
+                                                CustomPaint(
+                                                  painter: DibujoPainter(
+                                                    trazos,
+                                                  ),
+                                                ),
+                                          ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              ValueListenableBuilder<List<Widget>>(
+                                ValueListenableBuilder<List<Widget>>(
                                   valueListenable: _sellosNotifier,
                                   builder: (context, sellos, child) =>
-                                      Stack(children: sellos)),
-                              if (modoHerramienta == 'sellos')
-                                Positioned.fill(
-                                  child: GestureDetector(
+                                      Stack(children: sellos),
+                                ),
+                                if (modoHerramienta == 'sellos')
+                                  Positioned.fill(
+                                    child: GestureDetector(
                                       behavior: HitTestBehavior.opaque,
                                       onTapUp: _pegarSello,
-                                      child:
-                                          Container(color: Colors.transparent)),
+                                      child: Container(
+                                        color: Colors.transparent,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // UI SUPERIOR
+            Positioned(
+              top: 10,
+              left: 15,
+              right: 15,
+              child: SafeArea(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildBotonFlotante(
+                      Icons.close_rounded,
+                      _salir,
+                      color: Colors.red,
+                    ),
+                    Row(
+                      children: [
+                        ValueListenableBuilder<bool>(
+                          valueListenable:
+                              ServicioAudio.instance.audioActivoNotifier,
+                          builder: (context, audioActivo, _) {
+                            return _buildBotonFlotante(
+                              audioActivo
+                                  ? Icons.volume_up_rounded
+                                  : Icons.volume_off_rounded,
+                              _toggleAudio,
+                              color: audioActivo ? Colors.green : Colors.grey,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildBotonFlotante(
+                          Icons.share_rounded,
+                          _guardarImagen,
+                          color: Colors.blue,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildBotonFlotante(
+                          Icons.undo_rounded,
+                          _deshacerUltimaAccion,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildBotonFlotante(
+                          Icons.delete_sweep_rounded,
+                          _limpiarLienzoCompleto,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildBotonFlotante(
+                          Icons.navigate_before_rounded,
+                          () => _cambiarDibujo(-1),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildBotonFlotante(
+                          Icons.navigate_next_rounded,
+                          () => _cambiarDibujo(1),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // UI INFERIOR UX/UI IDÉNTICA A AI STUDIO
+            Positioned(
+              bottom: 15,
+              left: 15,
+              right: 15,
+              child: SafeArea(
+                child: Container(
+                  height: 70,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Botón de Herramienta Activa (Estilo AI Studio)
+                      GestureDetector(
+                        onTap: _mostrarSubpantallaHerramientas,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                modoHerramienta == 'sellos'
+                                    ? Icons.star_rounded
+                                    : (modoHerramienta == 'pincel'
+                                          ? Icons.brush_rounded
+                                          : (modoHerramienta == 'marcador'
+                                                ? Icons.draw_rounded
+                                                : Icons
+                                                      .format_color_fill_rounded)),
+                                color: Colors.deepPurple,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 6),
+                              // 🚀 Texto dinámico corregido para que no se corte
+                              Text(
+                                Traductor.get(
+                                  colorSeleccionado == Colors.white &&
+                                          modoHerramienta == 'pincel'
+                                      ? 'borrador'
+                                      : modoHerramienta == 'sellos'
+                                      ? 'Stickers'
+                                      : modoHerramienta,
                                 ),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
+                      const SizedBox(width: 8),
 
-          // UI SUPERIOR
-          Positioned(
-            top: 10,
-            left: 15,
-            right: 15,
-            child: SafeArea(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildBotonFlotante(
-                      Icons.close_rounded, () => Navigator.pop(context),
-                      color: Colors.red),
-                  Row(
-                    children: [
-                      ValueListenableBuilder<bool>(
-                        valueListenable:
-                            ServicioAudio.instance.audioActivoNotifier,
-                        builder: (context, audioActivo, _) {
-                          return _buildBotonFlotante(
-                            audioActivo
-                                ? Icons.volume_up_rounded
-                                : Icons.volume_off_rounded,
-                            _toggleAudio,
-                            color: audioActivo ? Colors.green : Colors.grey,
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _buildBotonFlotante(
-                          Icons.camera_alt_rounded, _guardarImagen,
-                          color: Colors.blue),
-                      const SizedBox(width: 8),
-                      _buildBotonFlotante(
-                          Icons.undo_rounded, _deshacerUltimaAccion),
-                      const SizedBox(width: 8),
-                      _buildBotonFlotante(
-                          Icons.delete_sweep_rounded, _limpiarLienzoCompleto),
-                      const SizedBox(width: 8),
-                      _buildBotonFlotante(Icons.navigate_before_rounded,
-                          () => _cambiarDibujo(-1)),
-                      const SizedBox(width: 8),
-                      _buildBotonFlotante(
-                          Icons.navigate_next_rounded, () => _cambiarDibujo(1)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // UI INFERIOR UX/UI IDÉNTICA A AI STUDIO
-          Positioned(
-            bottom: 15,
-            left: 15,
-            right: 15,
-            child: SafeArea(
-              child: Container(
-                height: 70,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(25),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 15,
-                        spreadRadius: 2)
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    // Botón de Herramienta Activa (Estilo AI Studio)
-                    GestureDetector(
-                      onTap: _mostrarSubpantallaHerramientas,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Row(
+                      // Laboratorio Flotante Compacto
+                      if (modoHerramienta != 'sellos') ...[
+                        Row(
                           children: [
-                            Icon(
-                              modoHerramienta == 'sellos'
-                                  ? Icons.star_rounded
-                                  : (modoHerramienta == 'pincel'
-                                      ? Icons.brush_rounded
-                                      : (modoHerramienta == 'marcador'
-                                          ? Icons.draw_rounded
-                                          : Icons.format_color_fill_rounded)),
-                              color: Colors.deepPurple,
-                              size: 24,
+                            IconButton(
+                              icon: const Icon(
+                                Icons.nightlight_round,
+                                color: Colors.blueGrey,
+                                size: 18,
+                              ),
+                              onPressed: _oscurecerTono,
+                              constraints: const BoxConstraints(
+                                minWidth: 30,
+                                minHeight: 30,
+                              ),
+                              padding: EdgeInsets.zero,
                             ),
-                            const SizedBox(width: 6),
-                            // 🚀 Texto dinámico corregido para que no se corte
-                            Text(
-                              Traductor.get('pintura'),
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepPurple),
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: colorSeleccionado,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.black87,
+                                  width: 2,
+                                ),
+                              ),
+                              child: colorSeleccionado == Colors.white
+                                  ? const Icon(
+                                      Icons.cleaning_services_rounded,
+                                      color: Colors.black38,
+                                      size: 16,
+                                    )
+                                  : null,
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.wb_sunny_rounded,
+                                color: Colors.amber,
+                                size: 18,
+                              ),
+                              onPressed: _aclararTono,
+                              constraints: const BoxConstraints(
+                                minWidth: 30,
+                                minHeight: 30,
+                              ),
+                              padding: EdgeInsets.zero,
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                        const SizedBox(width: 8),
+                      ],
 
-                    // Laboratorio Flotante Compacto
-                    if (modoHerramienta != 'sellos') ...[
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.nightlight_round,
-                                color: Colors.blueGrey, size: 18),
-                            onPressed: _oscurecerTono,
-                            constraints: const BoxConstraints(
-                                minWidth: 30, minHeight: 30),
-                            padding: EdgeInsets.zero,
-                          ),
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: colorSeleccionado,
-                              shape: BoxShape.circle,
-                              border:
-                                  Border.all(color: Colors.black87, width: 2),
-                            ),
-                            child: colorSeleccionado == Colors.white
-                                ? const Icon(Icons.cleaning_services_rounded,
-                                    color: Colors.black38, size: 16)
-                                : null,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.wb_sunny_rounded,
-                                color: Colors.amber, size: 18),
-                            onPressed: _aclararTono,
-                            constraints: const BoxConstraints(
-                                minWidth: 30, minHeight: 30),
-                            padding: EdgeInsets.zero,
-                          ),
-                        ],
+                      // Paleta o Stickers Extendidos
+                      Expanded(
+                        child: modoHerramienta == 'sellos'
+                            ? _buildStickerPalette()
+                            : _buildColorPalette(),
                       ),
-                      const SizedBox(width: 8),
                     ],
-
-                    // Paleta o Stickers Extendidos
-                    Expanded(
-                      child: modoHerramienta == 'sellos'
-                          ? _buildStickerPalette()
-                          : _buildColorPalette(),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBotonFlotante(IconData icono, VoidCallback onTap,
-      {Color color = Colors.black87}) {
+  Widget _buildBotonFlotante(
+    IconData icono,
+    VoidCallback onTap, {
+    Color color = Colors.black87,
+  }) {
     return Container(
       width: 45,
       height: 45,
       decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
-          ]),
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10),
+        ],
+      ),
       child: IconButton(
-          icon: Icon(icono, color: color, size: 24), onPressed: onTap),
+        tooltip: textoAdulto(
+          icono == Icons.close_rounded
+              ? 'close'
+              : icono == Icons.share_rounded
+              ? 'share'
+              : icono == Icons.undo_rounded
+              ? 'undo'
+              : icono == Icons.delete_sweep_rounded
+              ? 'clear'
+              : icono == Icons.navigate_before_rounded
+              ? 'previous'
+              : icono == Icons.navigate_next_rounded
+              ? 'next'
+              : 'audio',
+        ),
+        icon: Icon(icono, color: color, size: 24),
+        onPressed: _compartiendo ? null : onTap,
+      ),
     );
   }
 
@@ -761,11 +931,12 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   });
                 },
                 child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Opacity(
-                        opacity: isActivo ? 1.0 : 0.4,
-                        child: Text(catIcon,
-                            style: const TextStyle(fontSize: 14)))),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Opacity(
+                    opacity: isActivo ? 1.0 : 0.4,
+                    child: Text(catIcon, style: const TextStyle(fontSize: 14)),
+                  ),
+                ),
               );
             }).toList(),
           ),
@@ -782,11 +953,16 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   setState(() => selloActual = sello);
                 },
                 child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Center(
-                        child: Text(sello,
-                            style: TextStyle(
-                                fontSize: selloActual == sello ? 30 : 22)))),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Center(
+                    child: Text(
+                      sello,
+                      style: TextStyle(
+                        fontSize: selloActual == sello ? 30 : 22,
+                      ),
+                    ),
+                  ),
+                ),
               );
             },
           ),
@@ -804,24 +980,27 @@ class _JuegoPinturaState extends State<JuegoPintura> {
         final bool isSelected = colorSeleccionado == c;
         return GestureDetector(
           onTap: () => _seleccionarOMezclarColor(c),
+          onLongPress: () => _mezclarColor(c),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
             width: isSelected ? 38 : 30,
             decoration: BoxDecoration(
-                color: c,
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: isSelected ? Colors.black : Colors.black12,
-                    width: isSelected ? 3 : 2),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                            color: c.withValues(alpha: 0.5), blurRadius: 8)
-                      ]
-                    : []),
+              color: c,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? Colors.black : Colors.black12,
+                width: isSelected ? 3 : 2,
+              ),
+              boxShadow: isSelected
+                  ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 8)]
+                  : [],
+            ),
             child: c == Colors.white
-                ? const Icon(Icons.cleaning_services_rounded,
-                    color: Colors.black54, size: 16)
+                ? const Icon(
+                    Icons.cleaning_services_rounded,
+                    color: Colors.black54,
+                    size: 16,
+                  )
                 : null,
           ),
         );
@@ -838,8 +1017,9 @@ class DibujoPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (var trazo in trazos) {
       final paint = Paint()
-        ..color =
-            trazo.esMarcador ? trazo.color.withValues(alpha: 0.5) : trazo.color
+        ..color = trazo.esMarcador
+            ? trazo.color.withValues(alpha: 0.5)
+            : trazo.color
         ..strokeWidth = trazo.grosor
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round

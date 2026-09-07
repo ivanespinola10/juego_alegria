@@ -1,5 +1,7 @@
 import 'dart:ui' as ui;
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class Traductor {
   static String _idiomaActual = 'es';
   static String get idiomaActual => _idiomaActual;
@@ -21,8 +23,7 @@ class Traductor {
       'Stickers': 'Stickers',
       'cerrar': 'Cerrar',
       'onb_titulo_1': '¡Magia al Instante!',
-      'onb_desc_1':
-          'Toca cualquier espacio para llenarlo de color sin salirte de la raya.',
+      'onb_desc_1': 'Toca cualquier espacio para llenarlo de color sin salirte de la raya.',
       'onb_titulo_2': 'Laboratorio de Colores',
       'onb_desc_2':
           'Aclara, oscurece o mezcla colores como un verdadero científico.',
@@ -30,11 +31,9 @@ class Traductor {
       'onb_desc_3':
           'Importa tus propias imágenes de la galería para pintarlas.',
       'onb_boton': '¡A Pintar! 🎨',
-      'compartir_texto':
-          '¡Mira mi obra de arte creada en El Mundo de Alegría! 🎨✨ Descárgala en Google Play.',
+      'compartir_texto': '¡Mira mi obra de arte creada en El Mundo de Alegría! 🎨✨ Descárgala en Google Play.',
       'premium_titulo': '¡Desbloquea el Pase Mágico!',
-      'premium_desc':
-          'Obtén acceso ilimitado a todos los packs exclusivos y apoya el desarrollo de la app.',
+      'premium_desc': 'Obtén acceso ilimitado a todos los packs exclusivos y apoya el desarrollo de la app.',
       'premium_boton': '¡Desbloquear Todo!',
       'pack_bloqueado': 'Pack Premium',
     },
@@ -61,11 +60,9 @@ class Traductor {
       'onb_titulo_3': 'Infinite Drawings!',
       'onb_desc_3': 'Import your own images from the gallery to paint them.',
       'onb_boton': 'Let\'s Paint! 🎨',
-      'compartir_texto':
-          'Look at my artwork created in World of Joy! 🎨✨ Get it on Google Play.',
+      'compartir_texto': 'Look at my artwork created in World of Joy! 🎨✨ Get it on Google Play.',
       'premium_titulo': 'Unlock Magic Pass!',
-      'premium_desc':
-          'Get unlimited access to all exclusive packs and support app development.',
+      'premium_desc': 'Get unlimited access to all exclusive packs and support app development.',
       'premium_boton': 'Unlock Everything!',
       'pack_bloqueado': 'Premium Pack',
     },
@@ -85,16 +82,14 @@ class Traductor {
       'Stickers': 'Adesivos',
       'cerrar': 'Fechar',
       'onb_titulo_1': 'Magia Instantânea!',
-      'onb_desc_1':
-          'Toque em qualquer espaço para preenchê-lo com cor sem sair da linha.',
+      'onb_desc_1': 'Toque em qualquer espaço para preenchê-lo com cor sem sair da linha.',
       'onb_titulo_2': 'Laboratório de Cores',
       'onb_desc_2':
           'Clareie, escureça ou misture cores como um verdadeiro cientista.',
       'onb_titulo_3': 'Desenhos Infinitos!',
       'onb_desc_3': 'Importe suas próprias imagens da galeria para pintá-las.',
       'onb_boton': 'Vamos Pintar! 🎨',
-      'compartir_texto':
-          'Olha a minha obra de arte criada no O Mundo da Alegria! 🎨✨ Baixe no Google Play.',
+      'compartir_texto': 'Olha a minha obra de arte criada no O Mundo da Alegria! 🎨✨ Baixe no Google Play.',
       'premium_titulo': 'Desbloquear Passe Mágico!',
       'premium_desc': 'Tenha acesso ilimitado a todos os pacotes exclusivos.',
       'premium_boton': 'Desbloquear Tudo!',
@@ -116,11 +111,9 @@ class Traductor {
       'Stickers': 'Sticker',
       'cerrar': 'Schließen',
       'onb_titulo_1': 'Sofortige Magie!',
-      'onb_desc_1':
-          'Tippe auf einen Bereich, um ihn mit Farbe zu füllen, ohne über die Linien zu malen.',
+      'onb_desc_1': 'Tippe auf einen Bereich, um ihn mit Farbe zu füllen, ohne über die Linien zu malen.',
       'onb_titulo_2': 'Farblabor',
-      'onb_desc_2':
-          'Helle Farben auf, verdunkle oder mische sie wie ein echter Wissenschaftler.',
+      'onb_desc_2': 'Helle Farben auf, verdunkle oder mische sie wie ein echter Wissenschaftler.',
       'onb_titulo_3': 'Unendliche Bilder!',
       'onb_desc_3':
           'Importiere deine eigenen Bilder aus der Galerie, um sie auszumalen.',
@@ -149,11 +142,9 @@ class Traductor {
       'Stickers': 'Autocollants',
       'cerrar': 'Fermer',
       'onb_titulo_1': 'Magie Instantanée !',
-      'onb_desc_1':
-          'Touche n\'importe quel espace pour le remplir de couleur sans dépasser les lignes.',
+      'onb_desc_1': 'Touche n\'importe quel espace pour le remplir de couleur sans dépasser les lignes.',
       'onb_titulo_2': 'Laboratoire de Couleurs',
-      'onb_desc_2':
-          'Éclaircis, assombris ou mélange les couleurs comme un vrai scientifique.',
+      'onb_desc_2': 'Éclaircis, assombris ou mélange les couleurs comme un vrai scientifique.',
       'onb_titulo_3': 'Dessins Infinis !',
       'onb_desc_3':
           'Importe tes propres images de la galerie pour les peindre.',
@@ -164,10 +155,16 @@ class Traductor {
       'premium_desc': 'Obtenez un accès illimité à tous les packs exclusifs.',
       'premium_boton': 'Tout débloquer !',
       'pack_bloqueado': 'Pack Premium',
-    }
+    },
   };
 
-  static void inicializar() {
+  static Future<void> inicializar() async {
+    final prefs = await SharedPreferences.getInstance();
+    final guardado = prefs.getString('idioma');
+    if (guardado != null && _diccionario.containsKey(guardado)) {
+      _idiomaActual = guardado;
+      return;
+    }
     final String idiomaDispositivo =
         ui.PlatformDispatcher.instance.locale.languageCode;
     if (_diccionario.containsKey(idiomaDispositivo)) {
@@ -177,9 +174,11 @@ class Traductor {
     }
   }
 
-  static void setIdioma(String lang) {
+  static Future<void> setIdioma(String lang) async {
     if (_diccionario.containsKey(lang)) {
       _idiomaActual = lang;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('idioma', lang);
     }
   }
 

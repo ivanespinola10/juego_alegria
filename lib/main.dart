@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // 🚀 Nuevo
+
 import 'menu_principal.dart';
 import 'idiomas.dart';
 import 'onboarding.dart'; // 🚀 Nuevo
+import 'servicio_audio.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  Traductor.inicializar();
+  await Traductor.inicializar();
+  await ServicioAudio.instance.cargarPreferencias();
 
   // 🚀 Verificamos si es la primera vez
   final prefs = await SharedPreferences.getInstance();
@@ -36,7 +39,6 @@ class AlegriaApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
-        fontFamily: 'Nunito',
       ),
       // 🚀 Si es la primera vez, muestra el Onboarding. Si no, va al Menú.
       home: mostrarOnboarding
