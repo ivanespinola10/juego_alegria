@@ -8,6 +8,7 @@ import 'idiomas.dart';
 import 'gestor_archivos.dart';
 import 'juego_pintura.dart';
 import 'servicio_audio.dart';
+import 'parental_gate.dart';
 
 class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key});
@@ -149,17 +150,31 @@ class _MenuPrincipalState extends State<MenuPrincipal>
   Future<void> _procesarActualizacionCompras(
       List<PurchaseDetails> purchaseDetailsList) async {
     for (var purchaseDetails in purchaseDetailsList) {
+      if (purchaseDetails.productID != _kProductId) continue;
+
       if (purchaseDetails.status == PurchaseStatus.purchased ||
           purchaseDetails.status == PurchaseStatus.restored) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('es_pro', true);
-        setState(() {
-          _esVersionesPro = true;
-        });
+
+        if (mounted) {
+          setState(() {
+            _esVersionesPro = true;
+          });
+        }
 
         if (purchaseDetails.pendingCompletePurchase) {
           await _inAppPurchase?.completePurchase(purchaseDetails);
         }
+      } else if (purchaseDetails.status == PurchaseStatus.error && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              purchaseDetails.error?.message ??
+                  'No se pudo completar la compra. Intenta nuevamente.',
+            ),
+          ),
+        );
       }
     }
   }
@@ -264,13 +279,108 @@ class _MenuPrincipalState extends State<MenuPrincipal>
       trailing: Traductor.idiomaActual == codigo
           ? const Icon(Icons.check, color: Colors.deepPurple)
           : null,
-      onTap: () {
+      onTap: () async {
         ServicioAudio.instance.playPop();
         Traductor.setIdioma(codigo);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('idioma', codigo);
+        if (!mounted) return;
         Navigator.pop(context);
         setState(() {});
       },
     );
+  }
+
+  Future<void> _abrirLibroInfinito() async {
+    ServicioAudio.instance.playPop();
+
+    if (!_esVersionesPro) {
+      _mostrarPaywall();
+      return;
+    }
+
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La importación de dibujos está disponible en la versión móvil.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await GestorArchivos.importarArchivosDirectos();
+    await _cargarCarpetas();
+  }
+
+  Future<void> _comprarLibroInfinito() async {
+    final esAdulto = await solicitarConfirmacionAdulto(context);
+    if (!esAdulto || !mounted) return;
+
+    final store = _inAppPurchase;
+    if (store == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Las compras están disponibles en la versión móvil.'),
+        ),
+      );
+      return;
+    }
+
+    final available = await store.isAvailable();
+    if (!available) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('La tienda no está disponible.')),
+      );
+      return;
+    }
+
+    final response = await store.queryProductDetails({_kProductId});
+    if (response.productDetails.isEmpty ||
+        response.notFoundIDs.contains(_kProductId)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El Libro Infinito no está disponible en la tienda.'),
+        ),
+      );
+      return;
+    }
+
+    final purchaseParam =
+        PurchaseParam(productDetails: response.productDetails.first);
+    await store.buyNonConsumable(purchaseParam: purchaseParam);
+  }
+
+  Future<void> _restaurarCompras() async {
+    final store = _inAppPurchase;
+    if (store == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La restauración está disponible en la versión móvil.'),
+        ),
+      );
+      return;
+    }
+
+    final available = await store.isAvailable();
+    if (!available) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('La tienda no está disponible.')),
+      );
+      return;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(Traductor.get('restaurando_compras'))),
+      );
+    }
+    await store.restorePurchases();
   }
 
   void _mostrarPaywall() {
@@ -320,45 +430,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                 onPressed: () async {
                   ServicioAudio.instance.playPop();
                   Navigator.pop(context);
-
-                  // 🚀 Lanzar la pasarela oficial de Google Play
-                  final store = _inAppPurchase;
-                  if (store == null) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Las compras están disponibles en Android.")),
-                    );
-                    return;
-                  }
-
-                  final bool available = await store.isAvailable();
-                  if (!available) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text("La tienda no está disponible.")),
-                    );
-                    return;
-                  }
-
-                  final ProductDetailsResponse response =
-                      await store.queryProductDetails({_kProductId});
-
-                  if (response.notFoundIDs.isNotEmpty) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text(
-                              "El producto no está configurado en la consola.")),
-                    );
-                    return;
-                  }
-
-                  final ProductDetails productDetails =
-                      response.productDetails.first;
-                  final PurchaseParam purchaseParam =
-                      PurchaseParam(productDetails: productDetails);
-                  store.buyNonConsumable(purchaseParam: purchaseParam);
+                  await _comprarLibroInfinito();
                 },
                 child: Text(
                   Traductor.get('premium_boton'),
@@ -366,7 +438,15 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                       fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
+              TextButton.icon(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _restaurarCompras();
+                },
+                icon: const Icon(Icons.restore_rounded, size: 18),
+                label: Text(Traductor.get('restaurar_compras')),
+              ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(Traductor.get('cancelar'),
@@ -412,11 +492,11 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                               color: Colors.amber, size: 24),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
-                          "El Mundo de Alegría",
-                          style: TextStyle(
+                        Text(
+                          Traductor.get('titulo_app'),
+                          style: const TextStyle(
                               fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               color: Colors.deepPurple),
                         ),
                       ],
@@ -438,28 +518,12 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                           icon: Icon(
                               _esVersionesPro
                                   ? Icons.add_photo_alternate_rounded
-                                  : Icons.lock_rounded,
+                                  : Icons.all_inclusive_rounded,
                               size: 20),
-                          label: Text(Traductor.get('importar_dibujos'),
+                          label: Text(Traductor.get('libro_infinito'),
                               style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          onPressed: () async {
-                            ServicioAudio.instance.playPop();
-                            if (!_esVersionesPro) {
-                              _mostrarPaywall();
-                              return;
-                            }
-                            if (!kIsWeb) {
-                              await GestorArchivos.importarArchivosDirectos();
-                              _cargarCarpetas();
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        "La importación de dibujos está disponible en dispositivos móviles.")),
-                              );
-                            }
-                          },
+                                  const TextStyle(fontWeight: FontWeight.w800)),
+                          onPressed: _abrirLibroInfinito,
                         ),
                         const SizedBox(width: 12),
                         GestureDetector(
@@ -531,13 +595,14 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                   ],
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 5),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24.0, vertical: 5),
                 child: Text(
-                  "Pintura y Dibujo",
-                  style: TextStyle(
+                  Traductor.get('menu_seccion'),
+                  style: const TextStyle(
                       fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w800,
                       color: Colors.black87),
                 ),
               ),
@@ -552,6 +617,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              _buildLibroInfinitoCard(context),
                               ..._packsEstaticos.map((pack) =>
                                   _buildTarjetaEstatica(context, pack)),
                               ..._categoriasUsuario.map(
@@ -568,68 +634,190 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     );
   }
 
-  Widget _buildTarjetaEstatica(
-      BuildContext context, Map<String, dynamic> pack) {
-    final Color colorMascota = pack["color"];
-    final IconData iconoData =
-        pack["icono"] is IconData ? pack["icono"] : Icons.menu_book_rounded;
+  Widget _buildLibroInfinitoCard(BuildContext context) {
+    const color = Colors.deepPurple;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        ServicioAudio.instance.playPop();
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => JuegoPintura(
-              dibujos: List<String>.from(pack["archivos"]),
-              titulo: pack["titulo"],
-              colorBase: colorMascota,
-              esNativo: false,
-            ),
-          ),
-        );
-      },
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+    return Semantics(
+      button: true,
+      label: Traductor.get('libro_infinito'),
+      child: InkWell(
+        onTap: _abrirLibroInfinito,
+        borderRadius: BorderRadius.circular(26),
         child: Container(
-          width: 240,
-          height: 320,
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          width: 220,
+          height: 300,
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(26),
             border: Border.all(
-                color: colorMascota.withValues(alpha: 0.3), width: 3),
+              color: color.withValues(alpha: 0.24),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                  color: colorMascota.withValues(alpha: 0.15),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8))
+                color: color.withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 7),
+              ),
             ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(20),
+                width: 150,
+                height: 132,
                 decoration: BoxDecoration(
-                    color: colorMascota.withValues(alpha: 0.1),
-                    shape: BoxShape.circle),
-                child: Icon(iconoData, size: 60, color: colorMascota),
+                  color: color.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Center(
+                  child: Text(
+                    '∞',
+                    style: TextStyle(
+                      fontSize: 86,
+                      height: 1,
+                      fontWeight: FontWeight.w300,
+                      color: color,
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Text(
-                pack["titulo"],
-                style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: colorMascota),
+                Traductor.get('libro_infinito'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                ),
               ),
               const SizedBox(height: 5),
               Text(
+                Traductor.get('libro_infinito_desc'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _esVersionesPro
+                      ? Traductor.get('desbloqueado')
+                      : Traductor.get('compra_unica'),
+                  style: const TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTarjetaEstatica(
+      BuildContext context, Map<String, dynamic> pack) {
+    final Color colorMascota = pack["color"];
+    final List<String> archivos = List<String>.from(pack["archivos"]);
+    final IconData iconoData =
+        pack["icono"] is IconData ? pack["icono"] : Icons.menu_book_rounded;
+
+    return Semantics(
+      button: true,
+      label: pack["titulo"],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(26),
+        onTap: () {
+          ServicioAudio.instance.playPop();
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => JuegoPintura(
+                dibujos: archivos,
+                titulo: pack["titulo"],
+                colorBase: colorMascota,
+                esNativo: false,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          width: 220,
+          height: 300,
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(
+              color: colorMascota.withValues(alpha: 0.22),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colorMascota.withValues(alpha: 0.09),
+                blurRadius: 16,
+                offset: const Offset(0, 7),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 170,
+                height: 150,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorMascota.withValues(alpha: 0.055),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: archivos.isNotEmpty
+                    ? Image.asset(
+                        archivos.first,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Icon(
+                          iconoData,
+                          size: 58,
+                          color: colorMascota,
+                        ),
+                      )
+                    : Icon(iconoData, size: 58, color: colorMascota),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                pack["titulo"],
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  color: colorMascota,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
                 pack["subtitulo"],
-                style: const TextStyle(color: Colors.grey, fontSize: 14),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
