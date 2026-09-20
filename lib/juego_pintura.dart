@@ -644,24 +644,20 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                         child: Row(
                           children: [
                             Icon(
-                              modoHerramienta == 'sellos'
-                                  ? Icons.star_rounded
-                                  : (modoHerramienta == 'pincel'
-                                      ? Icons.brush_rounded
-                                      : (modoHerramienta == 'marcador'
-                                          ? Icons.draw_rounded
-                                          : Icons.format_color_fill_rounded)),
+                              _iconoHerramientaActiva(),
                               color: Colors.deepPurple,
                               size: 24,
                             ),
                             const SizedBox(width: 6),
-                            // 🚀 Texto dinámico corregido para que no se corte
-                            Text(
-                              Traductor.get('pintura'),
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepPurple),
+                            Flexible(
+                              child: Text(
+                                _nombreHerramientaActiva(),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.deepPurple),
+                              ),
                             ),
                           ],
                         ),
@@ -724,6 +720,36 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     );
   }
 
+  String _nombreHerramientaActiva() {
+    switch (modoHerramienta) {
+      case 'pincel':
+        return Traductor.get('pincel');
+      case 'marcador':
+        return Traductor.get('marcador');
+      case 'borrador':
+        return Traductor.get('borrador');
+      case 'sellos':
+        return Traductor.get('Stickers');
+      default:
+        return Traductor.get('pintura');
+    }
+  }
+
+  IconData _iconoHerramientaActiva() {
+    switch (modoHerramienta) {
+      case 'pincel':
+        return Icons.brush_rounded;
+      case 'marcador':
+        return Icons.draw_rounded;
+      case 'borrador':
+        return Icons.cleaning_services_rounded;
+      case 'sellos':
+        return Icons.star_rounded;
+      default:
+        return Icons.format_color_fill_rounded;
+    }
+  }
+
   Widget _buildBotonFlotante(IconData icono, VoidCallback onTap,
       {Color color = Colors.black87}) {
     return Container(
@@ -759,12 +785,22 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     selloActual = coleccionSellos[catIcon]!.first;
                   });
                 },
-                child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Opacity(
-                        opacity: isActivo ? 1.0 : 0.4,
-                        child: Text(catIcon,
-                            style: const TextStyle(fontSize: 14)))),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isActivo
+                        ? Colors.deepPurple.withValues(alpha: 0.10)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Opacity(
+                    opacity: isActivo ? 1.0 : 0.55,
+                    child: Text(catIcon,
+                        style: const TextStyle(fontSize: 16)),
+                  ),
+                ),
               );
             }).toList(),
           ),
@@ -780,12 +816,25 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   _playPop();
                   setState(() => selloActual = sello);
                 },
-                child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Center(
-                        child: Text(sello,
-                            style: TextStyle(
-                                fontSize: selloActual == sello ? 30 : 22)))),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: selloActual == sello
+                        ? Colors.deepPurple.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      sello,
+                      style: TextStyle(
+                        fontSize: selloActual == sello ? 30 : 24,
+                      ),
+                    ),
+                  ),
+                ),
               );
             },
           ),
