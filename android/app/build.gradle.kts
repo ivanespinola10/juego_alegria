@@ -18,7 +18,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     // 🚀 El namespace interno para que Android encuentre tu código
     namespace = "com.mundoalegria.kids"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -37,7 +37,7 @@ android {
         // 🚀 Nivel de seguridad actualizado para emuladores modernos
         minSdk = flutter.minSdkVersion 
         
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
