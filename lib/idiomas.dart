@@ -1,6 +1,9 @@
 import 'dart:ui' as ui;
 
 class Traductor {
+  static const String playUrl =
+      'https://play.google.com/store/apps/details?id=com.mundoalegria.kids';
+
   static String _idiomaActual = 'es';
   static String get idiomaActual => _idiomaActual;
 
