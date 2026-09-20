@@ -2,7 +2,7 @@ name: myapp
 description: "El Mundo de Alegría - Premium Coloring Book"
 publish_to: 'none'
 
-version: 1.0.0+7
+version: 1.1.0+8
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -15,7 +15,6 @@ dependencies:
   in_app_review: ^2.0.12
   floodfill_image: ^0.0.8
   path_provider: ^2.1.6
-  permission_handler: ^11.3.1
   shared_preferences: ^2.5.5
   file_picker: ^8.0.0
   share_plus: ^10.0.0
