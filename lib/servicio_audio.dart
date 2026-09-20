@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Servicio singleton para gestionar el audio ambiental y los efectos de sonido
 class ServicioAudio {
@@ -14,6 +15,17 @@ class ServicioAudio {
   final ValueNotifier<bool> audioActivoNotifier = ValueNotifier<bool>(true);
 
   bool _musicaIniciada = false;
+
+  Future<void> cargarPreferencia() async {
+    final prefs = await SharedPreferences.getInstance();
+    _audioActivo = prefs.getBool('audio_activo') ?? true;
+    audioActivoNotifier.value = _audioActivo;
+  }
+
+  Future<void> _guardarPreferencia() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('audio_activo', _audioActivo);
+  }
 
   Future<void> iniciarMusica() async {
     if (_musicaIniciada) return;
@@ -40,6 +52,7 @@ class ServicioAudio {
   void toggleAudio() {
     _audioActivo = !_audioActivo;
     audioActivoNotifier.value = _audioActivo;
+    _guardarPreferencia();
     if (_audioActivo) {
       _musicPlayer.resume();
     } else {
