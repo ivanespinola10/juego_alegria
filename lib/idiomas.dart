@@ -26,9 +26,9 @@ class Traductor {
       'onb_titulo_2': 'Laboratorio de Colores',
       'onb_desc_2':
           'Aclara, oscurece o mezcla colores como un verdadero científico.',
-      'onb_titulo_3': '¡Dibujos Infinitos!',
+      'onb_titulo_3': 'Tu Libro Infinito',
       'onb_desc_3':
-          'Importa tus propias imágenes de la galería para pintarlas.',
+          'Importa tus propios dibujos y crea una biblioteca que puede seguir creciendo. Sin anuncios ni suscripción.',
       'onb_boton': '¡A Pintar! 🎨',
       'compartir_texto':
           '¡Mira mi obra de arte creada en El Mundo de Alegría! 🎨 $playUrl',
@@ -75,8 +75,9 @@ class Traductor {
           'Tap any space to fill it with color without going over the lines.',
       'onb_titulo_2': 'Color Laboratory',
       'onb_desc_2': 'Lighten, darken or mix colors like a real scientist.',
-      'onb_titulo_3': 'Infinite Drawings!',
-      'onb_desc_3': 'Import your own images from the gallery to paint them.',
+      'onb_titulo_3': 'Your Infinite Coloring Book',
+      'onb_desc_3':
+          'Import your own drawings and build a library that can keep growing. No ads, no subscription.',
       'onb_boton': 'Let\'s Paint! 🎨',
       'compartir_texto':
           'Look at my artwork created in World of Joy! 🎨 $playUrl',
@@ -124,8 +125,9 @@ class Traductor {
       'onb_titulo_2': 'Laboratório de Cores',
       'onb_desc_2':
           'Clareie, escureça ou misture cores como um verdadeiro cientista.',
-      'onb_titulo_3': 'Desenhos Infinitos!',
-      'onb_desc_3': 'Importe suas próprias imagens da galeria para pintá-las.',
+      'onb_titulo_3': 'Seu Livro Infinito',
+      'onb_desc_3':
+          'Importe seus próprios desenhos e crie uma biblioteca que pode continuar crescendo. Sem anúncios nem assinatura.',
       'onb_boton': 'Vamos Pintar! 🎨',
       'compartir_texto':
           'Olha a minha obra de arte criada no O Mundo da Alegria! 🎨 $playUrl',
@@ -173,9 +175,9 @@ class Traductor {
       'onb_titulo_2': 'Farblabor',
       'onb_desc_2':
           'Helle Farben auf, verdunkle oder mische sie wie ein echter Wissenschaftler.',
-      'onb_titulo_3': 'Unendliche Bilder!',
+      'onb_titulo_3': 'Dein unendliches Malbuch',
       'onb_desc_3':
-          'Importiere deine eigenen Bilder aus der Galerie, um sie auszumalen.',
+          'Importiere deine eigenen Zeichnungen und baue eine Bibliothek auf, die weiter wachsen kann. Ohne Werbung, ohne Abo.',
       'onb_boton': 'Lass uns malen! 🎨',
       'compartir_texto':
           'Schau dir mein Kunstwerk aus Die Welt der Freude an! 🎨 $playUrl',
@@ -223,9 +225,9 @@ class Traductor {
       'onb_titulo_2': 'Laboratoire de Couleurs',
       'onb_desc_2':
           'Éclaircis, assombris ou mélange les couleurs comme un vrai scientifique.',
-      'onb_titulo_3': 'Dessins Infinis !',
+      'onb_titulo_3': 'Ton Livre Infini',
       'onb_desc_3':
-          'Importe tes propres images de la galerie pour les peindre.',
+          'Importe tes propres dessins et crée une bibliothèque qui peut continuer à grandir. Sans publicité ni abonnement.',
       'onb_boton': 'Allons Peindre ! 🎨',
       'compartir_texto':
           'Regarde mon œuvre créée dans Le Monde de la Joie ! 🎨 $playUrl',
