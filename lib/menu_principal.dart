@@ -22,8 +22,9 @@ class _MenuPrincipalState extends State<MenuPrincipal>
   List<CategoriaDinamica> _categoriasUsuario = [];
   bool _cargando = true;
   bool _esVersionesPro = false;
+  String? _precioLibroInfinito;
 
-  // 🚀 Configuración de Google Play Billing
+  // Configuración de Google Play Billing
   InAppPurchase? _inAppPurchase;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   final String _kProductId =
@@ -132,6 +133,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     if (!kIsWeb) {
       _inAppPurchase = InAppPurchase.instance;
       _inicializarCompras();
+      _cargarProductoLibroInfinito();
     }
   }
 
@@ -144,6 +146,18 @@ class _MenuPrincipalState extends State<MenuPrincipal>
       _subscription?.cancel();
     }, onError: (error) {
       debugPrint("Error en stream de compras: $error");
+    });
+  }
+
+  Future<void> _cargarProductoLibroInfinito() async {
+    final store = _inAppPurchase;
+    if (store == null || !await store.isAvailable()) return;
+
+    final response = await store.queryProductDetails({_kProductId});
+    if (response.productDetails.isEmpty || !mounted) return;
+
+    setState(() {
+      _precioLibroInfinito = response.productDetails.first.price;
     });
   }
 
@@ -416,7 +430,26 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                 style: const TextStyle(
                     fontSize: 14, color: Colors.grey, height: 1.4),
               ),
-              const SizedBox(height: 25),
+              const SizedBox(height: 16),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _precioLibroInfinito == null
+                      ? Traductor.get('compra_unica')
+                      : '${Traductor.get('compra_unica')} · $_precioLibroInfinito',
+                  style: const TextStyle(
+                    color: Colors.deepPurple,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
