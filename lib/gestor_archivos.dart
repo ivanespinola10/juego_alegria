@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class CategoriaDinamica {
   final String nombre;
@@ -71,13 +70,6 @@ class GestorArchivos {
 
   static Future<List<CategoriaDinamica>> escanearCarpetasUsuario() async {
     List<CategoriaDinamica> categorias = [];
-
-    if (!kIsWeb) {
-      var status = await Permission.storage.request();
-      if (!status.isGranted) {
-        await Permission.photos.request();
-      }
-    }
 
     try {
       final directorioRaiz = await getApplicationDocumentsDirectory();
