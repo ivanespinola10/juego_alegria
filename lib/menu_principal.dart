@@ -23,7 +23,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
   bool _esVersionesPro = false;
 
   // 🚀 Configuración de Google Play Billing
-  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  InAppPurchase? _inAppPurchase;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   final String _kProductId =
       'libro_infinito'; // Debe coincidir con el ID en Google Play Console
@@ -128,11 +128,15 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     _cargarCarpetas();
     ServicioAudio.instance.iniciarMusica();
     _verificarEstadoPro();
-    _inicializarCompras(); // 🚀 Escuchador de Google Play
+    if (!kIsWeb) {
+      _inAppPurchase = InAppPurchase.instance;
+      _inicializarCompras();
+    }
   }
 
   void _inicializarCompras() {
-    final purchaseStream = _inAppPurchase.purchaseStream;
+    final purchaseStream = _inAppPurchase?.purchaseStream;
+    if (purchaseStream == null) return;
     _subscription = purchaseStream.listen((purchaseDetailsList) {
       _procesarActualizacionCompras(purchaseDetailsList);
     }, onDone: () {
@@ -154,7 +158,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
         });
 
         if (purchaseDetails.pendingCompletePurchase) {
-          await _inAppPurchase.completePurchase(purchaseDetails);
+          await _inAppPurchase?.completePurchase(purchaseDetails);
         }
       }
     }
@@ -318,7 +322,16 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                   Navigator.pop(context);
 
                   // 🚀 Lanzar la pasarela oficial de Google Play
-                  final bool available = await _inAppPurchase.isAvailable();
+                  final store = _inAppPurchase;
+                  if (store == null) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Las compras están disponibles en Android.")),
+                    );
+                    return;
+                  }
+
+                  final bool available = await store.isAvailable();
                   if (!available) {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -329,7 +342,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                   }
 
                   final ProductDetailsResponse response =
-                      await _inAppPurchase.queryProductDetails({_kProductId});
+                      await store.queryProductDetails({_kProductId});
 
                   if (response.notFoundIDs.isNotEmpty) {
                     if (!mounted) return;
@@ -345,7 +358,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                       response.productDetails.first;
                   final PurchaseParam purchaseParam =
                       PurchaseParam(productDetails: productDetails);
-                  _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+                  store.buyNonConsumable(purchaseParam: purchaseParam);
                 },
                 child: Text(
                   Traductor.get('premium_boton'),
