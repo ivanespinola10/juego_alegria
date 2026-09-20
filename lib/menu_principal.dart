@@ -77,12 +77,12 @@ class _MenuPrincipalState extends State<MenuPrincipal>
       "icono": Icons.favorite_rounded,
       "color": Colors.pink,
       "archivos": [
-        "assets/DinoBebes/1.png",
-        "assets/DinoBebes/2.png",
-        "assets/DinoBebes/3.png",
-        "assets/DinoBebes/4.png",
-        "assets/DinoBebes/5.png",
-        "assets/DinoBebes/6.png",
+        "assets/Dinobebe/1.png",
+        "assets/Dinobebe/2.png",
+        "assets/Dinobebe/3.png",
+        "assets/Dinobebe/4.png",
+        "assets/Dinobebe/5.png",
+        "assets/Dinobebe/6.png",
       ],
     },
     {
