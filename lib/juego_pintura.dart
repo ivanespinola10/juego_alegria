@@ -211,10 +211,22 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     super.dispose();
   }
 
-  void _cambiarDibujo(int paso) {
+  Future<void> _cambiarDibujo(int paso) async {
+    var nuevoIndice = (indiceActual + paso) % widget.dibujos.length;
+    if (nuevoIndice < 0) nuevoIndice = widget.dibujos.length - 1;
+
+    try {
+      await precacheImage(
+        _proveedorParaRuta(widget.dibujos[nuevoIndice]),
+        context,
+      );
+    } catch (_) {
+      // Si la precarga falla, el widget de imagen manejará el error normalmente.
+    }
+
+    if (!mounted) return;
     setState(() {
-      indiceActual = (indiceActual + paso) % widget.dibujos.length;
-      if (indiceActual < 0) indiceActual = widget.dibujos.length - 1;
+      indiceActual = nuevoIndice;
       lienzoKey = UniqueKey();
       _sellosNotifier.value = [];
       _trazosNotifier.value = [];
