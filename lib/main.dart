@@ -3,15 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // 🚀 Nuevo
 import 'menu_principal.dart';
 import 'idiomas.dart';
-import 'onboarding.dart'; // 🚀 Nuevo
+import 'onboarding.dart';
+import 'servicio_audio.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  Traductor.inicializar();
-
-  // 🚀 Verificamos si es la primera vez
   final prefs = await SharedPreferences.getInstance();
+  Traductor.inicializar(prefs.getString('idioma'));
+  await ServicioAudio.instance.cargarPreferencia();
+
   final bool vioOnboarding = prefs.getBool('vio_onboarding') ?? false;
 
   SystemChrome.setPreferredOrientations([
@@ -36,7 +37,6 @@ class AlegriaApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
-        fontFamily: 'Nunito',
       ),
       // 🚀 Si es la primera vez, muestra el Onboarding. Si no, va al Menú.
       home: mostrarOnboarding

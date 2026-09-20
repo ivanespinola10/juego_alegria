@@ -11,17 +11,21 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'idiomas.dart';
 import 'servicio_audio.dart';
+import 'parental_gate.dart';
 
 class Trazo {
   final List<Offset> puntos;
   final Color color;
   final double grosor;
   final bool esMarcador;
-  Trazo(
-      {required this.puntos,
-      required this.color,
-      required this.grosor,
-      this.esMarcador = false});
+  final bool esBorrador;
+  Trazo({
+    required this.puntos,
+    required this.color,
+    required this.grosor,
+    this.esMarcador = false,
+    this.esBorrador = false,
+  });
 }
 
 class JuegoPintura extends StatefulWidget {
@@ -78,7 +82,6 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '😇',
       '🦄',
       '🤡',
-      '🤠',
       '🥳',
       '😻',
       '🐶',
@@ -104,7 +107,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       '🦄',
       '🐤',
       '🐧',
-      ' koala',
+      '🐨',
       '🐙',
       '🦀',
       '🐳',
@@ -208,12 +211,45 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     super.dispose();
   }
 
-  void _cambiarDibujo(int paso) {
+  Future<void> _cambiarDibujo(int paso) async {
+    var nuevoIndice = (indiceActual + paso) % widget.dibujos.length;
+    if (nuevoIndice < 0) nuevoIndice = widget.dibujos.length - 1;
+
+    try {
+      await precacheImage(
+        _proveedorParaRuta(widget.dibujos[nuevoIndice]),
+        context,
+      );
+    } catch (_) {
+      // Si la precarga falla, el widget de imagen manejará el error normalmente.
+    }
+
+    if (!mounted) return;
     setState(() {
-      indiceActual = (indiceActual + paso) % widget.dibujos.length;
-      if (indiceActual < 0) indiceActual = widget.dibujos.length - 1;
-      _limpiarLienzoCompleto();
+      indiceActual = nuevoIndice;
+      lienzoKey = UniqueKey();
+      _sellosNotifier.value = [];
+      _trazosNotifier.value = [];
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _precargarVecinos();
+    });
+  }
+
+  ImageProvider _proveedorParaRuta(String ruta) {
+    return (ruta.startsWith('assets/') || kIsWeb)
+        ? AssetImage(ruta)
+        : FileImage(File(ruta)) as ImageProvider;
+  }
+
+  void _precargarVecinos() {
+    if (!mounted || widget.dibujos.length < 2) return;
+    final anterior =
+        (indiceActual - 1 + widget.dibujos.length) % widget.dibujos.length;
+    final siguiente = (indiceActual + 1) % widget.dibujos.length;
+    precacheImage(_proveedorParaRuta(widget.dibujos[anterior]), context);
+    precacheImage(_proveedorParaRuta(widget.dibujos[siguiente]), context);
   }
 
   void _limpiarLienzoCompleto() {
@@ -229,7 +265,9 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       final nuevaLista = List<Widget>.from(_sellosNotifier.value);
       nuevaLista.removeLast();
       _sellosNotifier.value = nuevaLista;
-    } else if ((modoHerramienta == 'pincel' || modoHerramienta == 'marcador') &&
+    } else if ((modoHerramienta == 'pincel' ||
+            modoHerramienta == 'marcador' ||
+            modoHerramienta == 'borrador') &&
         _trazosNotifier.value.isNotEmpty) {
       final nuevaLista = List<Trazo>.from(_trazosNotifier.value);
       nuevaLista.removeLast();
@@ -238,6 +276,9 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   }
 
   Future<void> _guardarImagen() async {
+    final esAdulto = await solicitarConfirmacionAdulto(context);
+    if (!esAdulto || !mounted) return;
+
     try {
       RenderRepaintBoundary boundary = _capturaKey.currentContext!
           .findRenderObject() as RenderRepaintBoundary;
@@ -275,6 +316,33 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     }
   }
 
+  Future<void> _confirmarLimpiarLienzo() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text(Traductor.get('limpiar_titulo')),
+        content: Text(Traductor.get('limpiar_desc')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(Traductor.get('cancelar')),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(Traductor.get('limpiar')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true && mounted) {
+      _limpiarLienzoCompleto();
+    }
+  }
+
   void _seleccionarOMezclarColor(Color nuevoColor) {
     _playPop();
     setState(() {
@@ -307,7 +375,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
       left: details.localPosition.dx - 25,
       top: details.localPosition.dy - 25,
       child: TweenAnimationBuilder(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 170),
         tween: Tween<double>(begin: 0, end: 1),
         builder: (context, double val, child) =>
             Transform.scale(scale: val, child: child),
@@ -388,12 +456,11 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     icono: Icons.cleaning_services_rounded,
                     color: Colors.grey.shade600,
                     titulo: Traductor.get('borrador'),
-                    activo: colorSeleccionado == Colors.white,
+                    activo: modoHerramienta == 'borrador',
                     onTap: () {
                       _playPop();
                       setState(() {
-                        modoHerramienta = 'pincel';
-                        colorSeleccionado = Colors.white;
+                        modoHerramienta = 'borrador';
                       });
                       Navigator.pop(context);
                     },
@@ -460,10 +527,7 @@ class _JuegoPinturaState extends State<JuegoPintura> {
   @override
   Widget build(BuildContext context) {
     final String rutaDibujo = widget.dibujos[indiceActual];
-    final ImageProvider proveedorImagen =
-        (rutaDibujo.startsWith('assets/') || kIsWeb)
-            ? AssetImage(rutaDibujo)
-            : FileImage(File(rutaDibujo)) as ImageProvider;
+    final ImageProvider proveedorImagen = _proveedorParaRuta(rutaDibujo);
 
     final lienzoBase = FloodFillImage(
       key: lienzoKey,
@@ -503,17 +567,22 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                               Positioned.fill(
                                 child: IgnorePointer(
                                   ignoring: modoHerramienta != 'pincel' &&
-                                      modoHerramienta != 'marcador',
+                                      modoHerramienta != 'marcador' &&
+                                      modoHerramienta != 'borrador',
                                   child: GestureDetector(
                                     onPanStart: (details) {
                                       _trazoActual = Trazo(
                                         puntos: [details.localPosition],
                                         color: colorSeleccionado,
-                                        grosor: modoHerramienta == 'marcador'
-                                            ? 25.0
-                                            : 8.0,
+                                        grosor: modoHerramienta == 'borrador'
+                                            ? 30.0
+                                            : (modoHerramienta == 'marcador'
+                                                ? 25.0
+                                                : 8.0),
                                         esMarcador:
                                             modoHerramienta == 'marcador',
+                                        esBorrador:
+                                            modoHerramienta == 'borrador',
                                       );
                                       _trazosNotifier.value =
                                           List.from(_trazosNotifier.value)
@@ -567,11 +636,57 @@ class _JuegoPinturaState extends State<JuegoPintura> {
             right: 15,
             child: SafeArea(
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildBotonFlotante(
-                      Icons.close_rounded, () => Navigator.pop(context),
-                      color: Colors.red),
+                    Icons.close_rounded,
+                    () => Navigator.pop(context),
+                    color: Colors.red.shade400,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 260),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.94),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.titulo,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${indiceActual + 1}/${widget.dibujos.length}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Row(
                     children: [
                       ValueListenableBuilder<bool>(
@@ -583,26 +698,41 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                                 ? Icons.volume_up_rounded
                                 : Icons.volume_off_rounded,
                             _toggleAudio,
-                            color: audioActivo ? Colors.green : Colors.grey,
+                            color: audioActivo
+                                ? Colors.green.shade600
+                                : Colors.grey,
                           );
                         },
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 7),
                       _buildBotonFlotante(
-                          Icons.camera_alt_rounded, _guardarImagen,
-                          color: Colors.blue),
-                      const SizedBox(width: 8),
+                        Icons.share_rounded,
+                        _guardarImagen,
+                        color: Colors.blue.shade600,
+                      ),
+                      if (modoHerramienta != 'pintura') ...[
+                        const SizedBox(width: 7),
+                        _buildBotonFlotante(
+                          Icons.undo_rounded,
+                          _deshacerUltimaAccion,
+                        ),
+                      ],
+                      const SizedBox(width: 7),
                       _buildBotonFlotante(
-                          Icons.undo_rounded, _deshacerUltimaAccion),
-                      const SizedBox(width: 8),
+                        Icons.restart_alt_rounded,
+                        _confirmarLimpiarLienzo,
+                        color: Colors.grey.shade700,
+                      ),
+                      const SizedBox(width: 7),
                       _buildBotonFlotante(
-                          Icons.delete_sweep_rounded, _limpiarLienzoCompleto),
-                      const SizedBox(width: 8),
-                      _buildBotonFlotante(Icons.navigate_before_rounded,
-                          () => _cambiarDibujo(-1)),
-                      const SizedBox(width: 8),
+                        Icons.navigate_before_rounded,
+                        () => _cambiarDibujo(-1),
+                      ),
+                      const SizedBox(width: 7),
                       _buildBotonFlotante(
-                          Icons.navigate_next_rounded, () => _cambiarDibujo(1)),
+                        Icons.navigate_next_rounded,
+                        () => _cambiarDibujo(1),
+                      ),
                     ],
                   ),
                 ],
@@ -633,45 +763,57 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                 child: Row(
                   children: [
                     // Botón de Herramienta Activa (Estilo AI Studio)
-                    GestureDetector(
-                      onTap: _mostrarSubpantallaHerramientas,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Row(
-                          children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _mostrarSubpantallaHerramientas,
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 112,
+                            minHeight: 44,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                             Icon(
-                              modoHerramienta == 'sellos'
-                                  ? Icons.star_rounded
-                                  : (modoHerramienta == 'pincel'
-                                      ? Icons.brush_rounded
-                                      : (modoHerramienta == 'marcador'
-                                          ? Icons.draw_rounded
-                                          : Icons.format_color_fill_rounded)),
+                              _iconoHerramientaActiva(),
                               color: Colors.deepPurple,
                               size: 24,
                             ),
                             const SizedBox(width: 6),
-                            // 🚀 Texto dinámico corregido para que no se corte
-                            Text(
-                              Traductor.get('pintura'),
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepPurple),
+                            Flexible(
+                              child: Text(
+                                _nombreHerramientaActiva(),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.deepPurple),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.keyboard_arrow_up_rounded,
+                              size: 18,
+                              color: Colors.deepPurple,
                             ),
                           ],
                         ),
                       ),
                     ),
+                    ),
                     const SizedBox(width: 8),
 
                     // Laboratorio Flotante Compacto
-                    if (modoHerramienta != 'sellos') ...[
+                    if (modoHerramienta != 'sellos' &&
+                        modoHerramienta != 'borrador') ...[
                       Row(
                         children: [
                           IconButton(
@@ -713,7 +855,15 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     Expanded(
                       child: modoHerramienta == 'sellos'
                           ? _buildStickerPalette()
-                          : _buildColorPalette(),
+                          : (modoHerramienta == 'borrador'
+                              ? Center(
+                                  child: Icon(
+                                    Icons.cleaning_services_rounded,
+                                    color: Colors.grey.shade500,
+                                    size: 28,
+                                  ),
+                                )
+                              : _buildColorPalette()),
                     ),
                   ],
                 ),
@@ -725,17 +875,50 @@ class _JuegoPinturaState extends State<JuegoPintura> {
     );
   }
 
+  String _nombreHerramientaActiva() {
+    switch (modoHerramienta) {
+      case 'pincel':
+        return Traductor.get('pincel');
+      case 'marcador':
+        return Traductor.get('marcador');
+      case 'borrador':
+        return Traductor.get('borrador');
+      case 'sellos':
+        return Traductor.get('Stickers');
+      default:
+        return Traductor.get('pintura');
+    }
+  }
+
+  IconData _iconoHerramientaActiva() {
+    switch (modoHerramienta) {
+      case 'pincel':
+        return Icons.brush_rounded;
+      case 'marcador':
+        return Icons.draw_rounded;
+      case 'borrador':
+        return Icons.cleaning_services_rounded;
+      case 'sellos':
+        return Icons.star_rounded;
+      default:
+        return Icons.format_color_fill_rounded;
+    }
+  }
+
   Widget _buildBotonFlotante(IconData icono, VoidCallback onTap,
       {Color color = Colors.black87}) {
     return Container(
-      width: 45,
-      height: 45,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            )
           ]),
       child: IconButton(
           icon: Icon(icono, color: color, size: 24), onPressed: onTap),
@@ -760,12 +943,22 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                     selloActual = coleccionSellos[catIcon]!.first;
                   });
                 },
-                child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Opacity(
-                        opacity: isActivo ? 1.0 : 0.4,
-                        child: Text(catIcon,
-                            style: const TextStyle(fontSize: 14)))),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isActivo
+                        ? Colors.deepPurple.withValues(alpha: 0.10)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Opacity(
+                    opacity: isActivo ? 1.0 : 0.55,
+                    child: Text(catIcon,
+                        style: const TextStyle(fontSize: 16)),
+                  ),
+                ),
               );
             }).toList(),
           ),
@@ -781,12 +974,25 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                   _playPop();
                   setState(() => selloActual = sello);
                 },
-                child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Center(
-                        child: Text(sello,
-                            style: TextStyle(
-                                fontSize: selloActual == sello ? 30 : 22)))),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: selloActual == sello
+                        ? Colors.deepPurple.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      sello,
+                      style: TextStyle(
+                        fontSize: selloActual == sello ? 30 : 24,
+                      ),
+                    ),
+                  ),
+                ),
               );
             },
           ),
@@ -836,10 +1042,16 @@ class DibujoPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.saveLayer(Offset.zero & size, Paint());
+
     for (var trazo in trazos) {
       final paint = Paint()
-        ..color =
-            trazo.esMarcador ? trazo.color.withValues(alpha: 0.5) : trazo.color
+        ..color = trazo.esBorrador
+            ? Colors.transparent
+            : (trazo.esMarcador
+                ? trazo.color.withValues(alpha: 0.5)
+                : trazo.color)
+        ..blendMode = trazo.esBorrador ? BlendMode.clear : BlendMode.srcOver
         ..strokeWidth = trazo.grosor
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
@@ -853,6 +1065,8 @@ class DibujoPainter extends CustomPainter {
         canvas.drawPoints(ui.PointMode.points, [trazo.puntos.first], paint);
       }
     }
+
+    canvas.restore();
   }
 
   @override
