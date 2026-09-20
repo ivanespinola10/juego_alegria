@@ -35,7 +35,7 @@ android {
         applicationId = "com.mundoalegria.kids"
         
         // 🚀 Nivel de seguridad actualizado para emuladores modernos
-        minSdk = 23 
+        minSdk = flutter.minSdkVersion 
         
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:async'; // 🚀 Necesario para el stream de compras
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // 🚀 ¡Esta línea faltaba!
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:in_app_purchase/in_app_purchase.dart'; // 🚀 Pasarela oficial de Google
 import 'idiomas.dart';
 import 'gestor_archivos.dart';
 import 'juego_pintura.dart';
@@ -18,8 +20,13 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     with WidgetsBindingObserver {
   List<CategoriaDinamica> _categoriasUsuario = [];
   bool _cargando = true;
-  bool _esVersionesPro =
-      false; // Estado del Paywall (Libro Infinito / Importar)
+  bool _esVersionesPro = false;
+
+  // 🚀 Configuración de Google Play Billing
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  StreamSubscription<List<PurchaseDetails>>? _subscription;
+  final String _kProductId =
+      'libro_infinito'; // Debe coincidir con el ID en Google Play Console
 
   final List<Map<String, dynamic>> _packsEstaticos = [
     {
@@ -121,6 +128,36 @@ class _MenuPrincipalState extends State<MenuPrincipal>
     _cargarCarpetas();
     ServicioAudio.instance.iniciarMusica();
     _verificarEstadoPro();
+    _inicializarCompras(); // 🚀 Escuchador de Google Play
+  }
+
+  void _inicializarCompras() {
+    final purchaseStream = _inAppPurchase.purchaseStream;
+    _subscription = purchaseStream.listen((purchaseDetailsList) {
+      _procesarActualizacionCompras(purchaseDetailsList);
+    }, onDone: () {
+      _subscription?.cancel();
+    }, onError: (error) {
+      debugPrint("Error en stream de compras: $error");
+    });
+  }
+
+  Future<void> _procesarActualizacionCompras(
+      List<PurchaseDetails> purchaseDetailsList) async {
+    for (var purchaseDetails in purchaseDetailsList) {
+      if (purchaseDetails.status == PurchaseStatus.purchased ||
+          purchaseDetails.status == PurchaseStatus.restored) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('es_pro', true);
+        setState(() {
+          _esVersionesPro = true;
+        });
+
+        if (purchaseDetails.pendingCompletePurchase) {
+          await _inAppPurchase.completePurchase(purchaseDetails);
+        }
+      }
+    }
   }
 
   Future<void> _verificarEstadoPro() async {
@@ -132,6 +169,7 @@ class _MenuPrincipalState extends State<MenuPrincipal>
 
   @override
   void dispose() {
+    _subscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -277,17 +315,37 @@ class _MenuPrincipalState extends State<MenuPrincipal>
                 ),
                 onPressed: () async {
                   ServicioAudio.instance.playPop();
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('es_pro', true);
-                  setState(() {
-                    _esVersionesPro = true;
-                  });
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            "🎉 ¡Libro Infinito activado! Ya puedes importar tus dibujos.")),
-                  );
+
+                  // 🚀 Lanzar la pasarela oficial de Google Play
+                  final bool available = await _inAppPurchase.isAvailable();
+                  if (!available) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text("La tienda no está disponible.")),
+                    );
+                    return;
+                  }
+
+                  final ProductDetailsResponse response =
+                      await _inAppPurchase.queryProductDetails({_kProductId});
+
+                  if (response.notFoundIDs.isNotEmpty) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              "El producto no está configurado en la consola.")),
+                    );
+                    return;
+                  }
+
+                  final ProductDetails productDetails =
+                      response.productDetails.first;
+                  final PurchaseParam purchaseParam =
+                      PurchaseParam(productDetails: productDetails);
+                  _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
                 },
                 child: Text(
                   Traductor.get('premium_boton'),
