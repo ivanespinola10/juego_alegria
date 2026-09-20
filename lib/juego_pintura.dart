@@ -632,17 +632,25 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                 child: Row(
                   children: [
                     // Botón de Herramienta Activa (Estilo AI Studio)
-                    GestureDetector(
-                      onTap: _mostrarSubpantallaHerramientas,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Row(
-                          children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _mostrarSubpantallaHerramientas,
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 112,
+                            minHeight: 44,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                             Icon(
                               _iconoHerramientaActiva(),
                               color: Colors.deepPurple,
@@ -659,9 +667,16 @@ class _JuegoPinturaState extends State<JuegoPintura> {
                                     color: Colors.deepPurple),
                               ),
                             ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.keyboard_arrow_up_rounded,
+                              size: 18,
+                              color: Colors.deepPurple,
+                            ),
                           ],
                         ),
                       ),
+                    ),
                     ),
                     const SizedBox(width: 8),
 
